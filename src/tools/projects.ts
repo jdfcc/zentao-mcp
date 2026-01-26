@@ -10,50 +10,50 @@ export function registerProjectTools(server: McpServer, zentaoClient: ZentaoClie
   server.registerTool(
     'zentao_list_projects',
     {
-      title: 'List Zentao Projects',
-      description: `Query project lists from Zentao system with optional filtering.
+      title: '获取禅道项目列表',
+      description: `从禅道系统查询项目列表,支持可选的筛选条件。
 
-This tool retrieves all projects from the Zentao project management system, with support for status filtering and pagination. It does NOT create or modify projects, only queries existing ones.
+此工具从禅道项目管理系统中检索所有项目,支持状态筛选和分页。此工具不会创建或修改项目,仅查询现有项目。
 
-Args:
-  - limit (number): Maximum results to return, between 1-100 (default: 20)
-  - offset (number): Number of results to skip for pagination (default: 0)
-  - status (string): Filter by project status - 'all', 'active', 'closed' (optional)
+参数:
+  - limit (number): 返回的最大结果数,范围 1-100 (默认: 20)
+  - offset (number): 分页跳过的结果数 (默认: 0)
+  - status (string): 按项目状态筛选 - 'all'(全部), 'active'(进行中), 'closed'(已关闭) (可选)
 
-Returns:
-  For JSON format: Structured data with schema:
+返回:
+  JSON 格式时,返回结构化数据:
   {
-    "total": number,              // Total number of projects found
-    "count": number,              // Number of results in this response
-    "offset": number,             // Current pagination offset
+    "total": number,              // 找到的项目总数
+    "count": number,              // 当前响应中的结果数
+    "offset": number,             // 当前分页偏移量
     "projects": [
       {
-        "id": string,            // Project ID
-        "name": string,          // Project name
-        "status": string,        // Project status (wait/doing/done/pause/closed/...)
-        "begin": string,         // Planned start date (YYYY-MM-DD)
-        "end": string,           // Planned end date (YYYY-MM-DD)
-        "realBegan": string,      // Actual start date (YYYY-MM-DD HH:mm:ss)
-        "realEnd": string,       // Actual end date (YYYY-MM-DD HH:mm:ss)
-        "openedBy": string,      // Creator account
-        "openedDate": string,    // Creation date (YYYY-MM-DD HH:mm:ss)
-        "desc": string           // Project description
+        "id": string,            // 项目 ID
+        "name": string,          // 项目名称
+        "status": string,        // 项目状态 (wait/doing/done/pause/closed/...)
+        "begin": string,         // 计划开始日期 (YYYY-MM-DD)
+        "end": string,           // 计划结束日期 (YYYY-MM-DD)
+        "realBegan": string,      // 实际开始日期 (YYYY-MM-DD HH:mm:ss)
+        "realEnd": string,       // 实际结束日期 (YYYY-MM-DD HH:mm:ss)
+        "openedBy": string,      // 创建者账号
+        "openedDate": string,    // 创建日期 (YYYY-MM-DD HH:mm:ss)
+        "desc": string           // 项目描述
       }
     ],
-    "has_more": boolean,         // Whether more results are available
-    "next_offset": number        // Offset for next page (if has_more is true)
+    "has_more": boolean,         // 是否有更多结果可用
+    "next_offset": number        // 下一页的偏移量 (当 has_more 为 true 时)
   }
 
-Examples:
-  - Use when: "List all active projects" -> params with status="active"
-  - Use when: "Show first 10 projects" -> params with limit=10
-  - Use when: "Get page 2 of projects" -> params with offset=20, limit=20
-  - Don't use when: You need to create or modify projects
+示例:
+  - 使用场景: "列出所有进行中的项目" -> 参数 status="active"
+  - 使用场景: "显示前 10 个项目" -> 参数 limit=10
+  - 使用场景: "获取第 2 页项目" -> 参数 offset=20, limit=20
+  - 不使用场景: 需要创建或修改项目时
 
-Error Handling:
-  - Returns "Error: Authentication failed" if credentials are invalid
-  - Returns "Error: Network connection failed" if server is unreachable
-  - Returns formatted project list with pagination info on success`,
+错误处理:
+  - 如果凭据无效,返回 "Error: Authentication failed"
+  - 如果服务器无法访问,返回 "Error: Network connection failed"
+  - 成功时返回带有分页信息的格式化项目列表`,
       inputSchema: ListProjectsInputSchema,
       annotations: {
         readOnlyHint: true,

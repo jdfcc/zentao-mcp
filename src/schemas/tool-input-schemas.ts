@@ -14,15 +14,15 @@ export const ListProjectsInputSchema = z.object({
     .min(1)
     .max(100)
     .default(20)
-    .describe('Maximum results to return, between 1-100'),
+    .describe('返回的最大结果数,范围 1-100'),
   offset: z.number()
     .int()
     .min(0)
     .default(0)
-    .describe('Number of results to skip for pagination'),
+    .describe('分页跳过的结果数'),
   status: z.nativeEnum(ProjectStatus)
     .optional()
-    .describe('Filter by project status: all/active/closed')
+    .describe('按项目状态筛选: all(全部)/active(进行中)/closed(已关闭)')
 }).strict();
 
 export type ListProjectsInput = z.infer<typeof ListProjectsInputSchema>;
@@ -30,58 +30,58 @@ export type ListProjectsInput = z.infer<typeof ListProjectsInputSchema>;
 export const ListBugsInputSchema = z.object({
   projectId: z.number()
     .optional()
-    .describe('Project ID (uses default if not specified)'),
+    .describe('项目 ID (如未指定则使用默认值)'),
   status: z.nativeEnum(BugStatus)
     .optional()
-    .describe('Filter by bug status: all/active/resolved/closed'),
+    .describe('按 Bug 状态筛选: all(全部)/active(活跃)/resolved(已解决)/closed(已关闭)'),
   severity: z.nativeEnum(Severity)
     .optional()
-    .describe('Filter by severity: 1-critical, 2-serious, 3-normal, 4-minor'),
+    .describe('按严重程度筛选: 1-致命, 2-严重, 3-一般, 4-轻微'),
   priority: z.nativeEnum(Priority)
     .optional()
-    .describe('Filter by priority: 1-high, 2-medium, 3-low, 4-lowest'),
+    .describe('按优先级筛选: 1-高, 2-中, 3-低, 4-最低'),
   assignedTo: z.string()
     .optional()
-    .describe('Filter by assigned user account'),
+    .describe('按指派用户账号筛选'),
   openedBy: z.string()
     .optional()
-    .describe('Filter by creator user account'),
+    .describe('按创建者用户账号筛选'),
   resolution: z.string()
     .optional()
-    .describe('Filter by resolution keyword'),
+    .describe('按解决方案关键词筛选'),
   startDate: z.string()
     .optional()
-    .describe('Filter by creation date start (YYYY-MM-DD)'),
+    .describe('按创建开始日期筛选 (YYYY-MM-DD)'),
   endDate: z.string()
     .optional()
-    .describe('Filter by creation date end (YYYY-MM-DD)'),
+    .describe('按创建结束日期筛选 (YYYY-MM-DD)'),
   limit: z.number()
     .int()
     .min(1)
     .max(100)
     .default(20)
-    .describe('Maximum results to return, between 1-100'),
+    .describe('返回的最大结果数,范围 1-100'),
   offset: z.number()
     .int()
     .min(0)
     .default(0)
-    .describe('Number of results to skip for pagination'),
+    .describe('分页跳过的结果数'),
   orderBy: z.nativeEnum(OrderBy)
     .optional()
-    .describe('Sort order for results'),
+    .describe('结果排序方式'),
   response_format: z.nativeEnum(ResponseFormat)
     .default(ResponseFormat.MARKDOWN)
-    .describe('Output format: markdown for human-readable or json for machine-readable')
+    .describe('输出格式: markdown 供人类阅读或 json 供机器读取')
 }).strict();
 
 export type ListBugsInput = z.infer<typeof ListBugsInputSchema>;
 
 export const GetBugDetailsInputSchema = z.object({
   bugId: z.number()
-    .describe('Bug ID to retrieve'),
+    .describe('要检索的 Bug ID'),
   response_format: z.nativeEnum(ResponseFormat)
     .default(ResponseFormat.MARKDOWN)
-    .describe('Output format: markdown for human-readable or json for machine-readable')
+    .describe('输出格式: markdown 供人类阅读或 json 供机器读取')
 }).strict();
 
 export type GetBugDetailsInput = z.infer<typeof GetBugDetailsInputSchema>;

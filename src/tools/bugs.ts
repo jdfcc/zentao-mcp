@@ -9,56 +9,56 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
   server.registerTool(
     'zentao_list_bugs',
     {
-      title: 'List Zentao Bugs',
-      description: `Query bug lists from Zentao with comprehensive multi-dimensional filtering.
+      title: '获取禅道 Bug 列表',
+      description: `从禅道查询 Bug 列表,支持全面的多维度筛选。
 
-This tool retrieves bugs from Zentao with support for filtering by project, status, severity, priority, assigned user, creator, date range, and more. It supports pagination and multiple output formats. It does NOT create or modify bugs, only queries existing ones.
+此工具从禅道检索 Bug,支持按项目、状态、严重程度、优先级、指派用户、创建者、日期范围等进行筛选。支持分页和多种输出格式。此工具不会创建或修改 Bug,仅查询现有 Bug。
 
-Args:
-  - projectId (number): Project ID (uses default if not specified)
-  - status (string): Filter by bug status - 'all', 'active', 'resolved', 'closed' (default: all)
-  - severity (string): Filter by severity - '1' (critical), '2' (serious), '3' (normal), '4' (minor)
-  - priority (string): Filter by priority - '1' (high), '2' (medium), '3' (low), '4' (lowest)
-  - assignedTo (string): Filter by assigned user account
-  - openedBy (string): Filter by creator user account
-  - resolution (string): Filter by resolution keyword
-  - startDate (string): Filter by creation date start (YYYY-MM-DD format)
-  - endDate (string): Filter by creation date end (YYYY-MM-DD format)
-  - limit (number): Maximum results to return, between 1-100 (default: 20)
-  - offset (number): Number of results to skip for pagination (default: 0)
-  - orderBy (string): Sort order for results
-  - response_format (string): Output format - 'markdown' for human-readable or 'json' for machine-readable (default: markdown)
+参数:
+  - projectId (number): 项目 ID (如未指定则使用默认值)
+  - status (string): 按状态筛选 - 'all'(全部), 'active'(活跃), 'resolved'(已解决), 'closed'(已关闭) (默认: all)
+  - severity (string): 按严重程度筛选 - '1' (致命), '2' (严重), '3' (一般), '4' (轻微)
+  - priority (string): 按优先级筛选 - '1' (高), '2' (中), '3' (低), '4' (最低)
+  - assignedTo (string): 按指派用户账号筛选
+  - openedBy (string): 按创建者用户账号筛选
+  - resolution (string): 按解决方案关键词筛选
+  - startDate (string): 按创建开始日期筛选 (YYYY-MM-DD 格式)
+  - endDate (string): 按创建结束日期筛选 (YYYY-MM-DD 格式)
+  - limit (number): 返回的最大结果数,范围 1-100 (默认: 20)
+  - offset (number): 分页跳过的结果数 (默认: 0)
+  - orderBy (string): 结果排序方式
+  - response_format (string): 输出格式 - 'markdown' 供人类阅读, 'json' 供机器读取 (默认: markdown)
 
-Returns:
-  For JSON format: Structured data with schema:
+返回:
+  JSON 格式时,返回结构化数据:
   {
     "bugs": [
       {
         "id": string,              // Bug ID
-        "title": string,           // Bug title
-        "status": string,           // Bug status (active/resolved/closed/...)
-        "severity": number,         // Severity (1-4)
-        "priority": number,         // Priority (1-4)
-        "openedDate": string,       // Creation date (YYYY-MM-DD HH:mm:ss)
-        "openedBy": string,         // Creator account
-        "assignedTo": string,       // Assigned user account
-        "assignedDate": string,     // Assignment date
-        "resolvedBy": string,       // Resolver account
-        "resolution": string,       // Resolution description
-        "resolvedDate": string,     // Resolution date
-        "closedBy": string,         // Closer account
-        "closedDate": string,       // Close date
-        "project": string,          // Project ID
-        "product": string,          // Product ID
-        "steps": string            // Reproduction steps
+        "title": string,           // Bug 标题
+        "status": string,           // Bug 状态 (active/resolved/closed/...)
+        "severity": number,         // 严重程度 (1-4)
+        "priority": number,         // 优先级 (1-4)
+        "openedDate": string,       // 创建日期 (YYYY-MM-DD HH:mm:ss)
+        "openedBy": string,         // 创建者账号
+        "assignedTo": string,       // 指派用户账号
+        "assignedDate": string,     // 指派日期
+        "resolvedBy": string,       // 解决者账号
+        "resolution": string,       // 解决方案描述
+        "resolvedDate": string,     // 解决日期
+        "closedBy": string,         // 关闭者账号
+        "closedDate": string,       // 关闭日期
+        "project": string,          // 项目 ID
+        "product": string,          // 产品 ID
+        "steps": string            // 复现步骤
       }
     ],
-    "total": number,              // Total number of matching bugs
-    "count": number,              // Number of bugs in this response
-    "offset": number,             // Current pagination offset
-    "has_more": boolean,           // Whether more results are available
-    "next_offset": number,        // Offset for next page (if has_more is true)
-    "filters": {                  // Applied filters for reference
+    "total": number,              // 匹配的 Bug 总数
+    "count": number,              // 当前响应中的 Bug 数
+    "offset": number,             // 当前分页偏移量
+    "has_more": boolean,           // 是否有更多结果可用
+    "next_offset": number,        // 下一页偏移量 (当 has_more 为 true 时)
+    "filters": {                  // 应用的筛选条件参考
       "projectId": number,
       "status": string,
       "severity": number,
@@ -66,17 +66,17 @@ Returns:
     }
   }
 
-Examples:
-  - Use when: "List all bugs in project 1" -> params with projectId=1
-  - Use when: "Show only active bugs" -> params with status="active"
-  - Use when: "Show critical severity bugs" -> params with severity="1"
-  - Use when: "Show bugs assigned to user john" -> params with assignedTo="john"
-  - Use when: "Show bugs from last week" -> params with startDate="2024-01-15", endDate="2024-01-22"
+示例:
+  - 使用场景: "列出项目 1 中的所有 Bug" -> 参数 projectId=1
+  - 使用场景: "仅显示活跃 Bug" -> 参数 status="active"
+  - 使用场景: "显示严重程度为致命的 Bug" -> 参数 severity="1"
+  - 使用场景: "显示指派给用户 john 的 Bug" -> 参数 assignedTo="john"
+  - 使用场景: "显示上周的 Bug" -> 参数 startDate="2024-01-15", endDate="2024-01-22"
 
-Error Handling:
-  - Returns "Error: Project not found" if projectId is invalid
-  - Returns "Error: Authentication failed" if credentials are invalid
-  - Returns formatted bug list with pagination info on success`,
+错误处理:
+  - 如果 projectId 无效,返回 "Error: Project not found"
+  - 如果凭据无效,返回 "Error: Authentication failed"
+  - 成功时返回带有分页信息的格式化 Bug 列表`,
       inputSchema: ListBugsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -312,35 +312,35 @@ Error Handling:
   server.registerTool(
     'zentao_get_bug_details',
     {
-      title: 'Get Zentao Bug Details',
-      description: `Retrieve detailed information about a specific bug by its ID.
+      title: '获取禅道 Bug 详情',
+      description: `根据 ID 检索特定 Bug 的详细信息。
 
-This tool fetches complete bug information from Zentao including title, description, steps, status, assignment history, resolution details, and related metadata. It does NOT create or modify bugs, only queries existing ones.
+此工具从禅道获取完整的 Bug 信息,包括标题、描述、步骤、状态、指派历史、解决方案详情和相关元数据。此工具不会创建或修改 Bug,仅查询现有 Bug。
 
-Args:
-  - bugId (number): Bug ID to retrieve (required)
-  - response_format (string): Output format - 'markdown' for human-readable or 'json' for machine-readable (default: markdown)
+参数:
+  - bugId (number): 要检索的 Bug ID (必需)
+  - response_format (string): 输出格式 - 'markdown' 供人类阅读, 'json' 供机器读取 (默认: markdown)
 
-Returns:
-  For JSON format: Structured data with complete bug information including:
+返回:
+  JSON 格式时,返回完整的 Bug 信息结构化数据,包括:
   - id, title, status, severity, priority, type
-  - Opened information (by, date, build)
-  - Assignment details (assignedTo, assignedDate, deadline)
-  - Resolution information (resolvedBy, resolution, resolvedBuild, resolvedDate)
-  - Closing information (closedBy, closedDate)
-  - Related objects (project, product, execution, plan, story, task)
-  - Steps, expected result, actual result
-  - Attachments and comments
-  - Last edited information
+  - 创建信息 (创建者、日期、版本)
+  - 指派详情 (指派给谁、指派日期、截止日期)
+  - 解决信息 (解决者、解决方案、解决版本、解决日期)
+  - 关闭信息 (关闭者、关闭日期)
+  - 关联对象 (项目、产品、执行、计划、需求、任务)
+  - 复现步骤、预期结果、实际结果
+  - 附件和评论
+  - 最后编辑信息
 
-Examples:
-  - Use when: "Get details for bug 12345" -> params with bugId=12345
-  - Use when: "Show me bug #54321 in JSON format" -> params with bugId=54321, response_format='json'
+示例:
+  - 使用场景: "获取 Bug 12345 的详情" -> 参数 bugId=12345
+  - 使用场景: "以 JSON 格式显示 Bug #54321" -> 参数 bugId=54321, response_format='json'
 
-Error Handling:
-  - Returns "Error: Bug not found" if bugId is invalid
-  - Returns "Error: Authentication failed" if credentials are invalid
-  - Returns complete bug details on success`,
+错误处理:
+  - 如果 bugId 无效,返回 "Error: Bug not found"
+  - 如果凭据无效,返回 "Error: Authentication failed"
+  - 成功时返回完整的 Bug 详情`,
       inputSchema: GetBugDetailsInputSchema,
       annotations: {
         readOnlyHint: true,
