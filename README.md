@@ -1,7 +1,7 @@
 # Zentao MCP Server
 
-[![npm version](https://badge.fury.io/js/zentao-mcp.svg)](https://www.npmjs.com/package/zentao-mcp)
-[![Node.js Version](https://img.shields.io/node/v/zentao-mcp.svg)](https://www.npmjs.com/package/zentao-mcp)
+[![npm version](https://badge.fury.io/js/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
+[![Node.js Version](https://img.shields.io/node/v/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/orange29233/zantao-mcp/workflows/CI/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
 [![Release](https://github.com/orange29233/zantao-mcp/workflows/Release/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
@@ -21,8 +21,8 @@
 
 ## npm 包信息
 
-- **包名**: `zentao-mcp`
-- **最新版本**: [![npm version](https://badge.fury.io/js/zentao-mcp.svg)](https://www.npmjs.com/package/zentao-mcp)
+- **包名**: `@orange29233/zentao-mcp`
+- **最新版本**: [![npm version](https://badge.fury.io/js/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
 - **许可证**: MIT
 - **Node.js 要求**: >= 18
 - **仓库**: https://github.com/orange29233/zantao-mcp
@@ -39,14 +39,14 @@
 直接使用 npx，无需安装：
 
 ```bash
-npx zentao-mcp
+npx @orange29233/zentao-mcp
 ```
 
 或全局安装：
 
 ```bash
-npm install -g zentao-mcp
-zentao-mcp
+npm install -g @orange29233/zentao-mcp
+@orange29233/zentao-mcp
 ```
 
 ### 方式 2: 从源码安装（开发调试）
@@ -175,7 +175,7 @@ Parameters: {
   "mcpServers": {
     "zentao": {
       "command": "npx",
-      "args": ["-y", "zentao-mcp"],
+      "args": ["-y", "@orange29233/zentao-mcp"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -198,7 +198,7 @@ Parameters: {
   "mcpServers": {
     "zentao": {
       "command": "node",
-      "args": ["D:\\path\\to\\zentao-mcp\\dist\\index.js"],
+      "args": ["D:\\path\\to\\@orange29233/zentao-mcp\\dist\\index.js"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -212,7 +212,7 @@ Parameters: {
 
 **macOS 路径示例**:
 ```json
-"args": ["/Users/yourname/projects/zentao-mcp/dist/index.js"]
+"args": ["/Users/yourname/projects/@orange29233/zentao-mcp/dist/index.js"]
 ```
 
 **说明**: 请将路径替换为您实际的项目路径。

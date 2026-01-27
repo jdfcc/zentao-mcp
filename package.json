@@ -1,5 +1,5 @@
 {
-  "name": "zentao-mcp",
+  "name": "@orange29233/zentao-mcp",
   "version": "1.0.0",
   "description": "MCP server for Zentao API integration - query projects and bugs",
   "type": "module",
