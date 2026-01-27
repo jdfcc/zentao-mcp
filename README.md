@@ -1,5 +1,11 @@
 # Zentao MCP Server
 
+[![npm version](https://badge.fury.io/js/zentao-mcp-server.svg)](https://www.npmjs.com/package/zentao-mcp-server)
+[![Node.js Version](https://img.shields.io/node/v/zentao-mcp-server.svg)](https://www.npmjs.com/package/zentao-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/orange29233/zantao-mcp/workflows/CI/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
+[![Release](https://github.com/orange29233/zantao-mcp/workflows/Release/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
+
 禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供查询项目和 Bug 的工具。
 
 ## 功能特性
@@ -13,6 +19,14 @@
 - TypeScript 类型安全
 - Zod 运行时输入验证
 
+## npm 包信息
+
+- **包名**: `zentao-mcp-server`
+- **最新版本**: [![npm version](https://badge.fury.io/js/zentao-mcp-server.svg)](https://www.npmjs.com/package/zentao-mcp-server)
+- **许可证**: MIT
+- **Node.js 要求**: >= 18
+- **仓库**: https://github.com/orange29233/zantao-mcp
+
 ## 前置要求
 
 - Node.js 18 或更高版本
@@ -20,13 +34,30 @@
 
 ## 快速开始
 
-### 1. 安装依赖
+### 方式 1: 使用 npm 包（推荐）
+
+直接使用 npx，无需安装：
+
+```bash
+npx zentao-mcp-server
+```
+
+或全局安装：
+
+```bash
+npm install -g zentao-mcp-server
+zentao-mcp
+```
+
+### 方式 2: 从源码安装（开发调试）
+
+#### 1. 安装依赖
 
 ```bash
 npm install
 ```
 
-### 2. 配置环境变量
+#### 2. 配置环境变量
 
 复制 `.env.example` 为 `.env` 并填入配置：
 
@@ -48,7 +79,7 @@ TTL_SECONDS=3600
 LOG_LEVEL=info
 ```
 
-#### 环境变量说明
+##### 环境变量说明
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
@@ -59,13 +90,13 @@ LOG_LEVEL=info
 | `TTL_SECONDS` | Token 缓存时间（秒） | 3600 |
 | `LOG_LEVEL` | 日志级别 (info/debug/error) | info |
 
-### 3. 编译项目
+#### 3. 编译项目
 
 ```bash
 npm run build
 ```
 
-### 4. 启动服务器
+#### 4. 启动服务器
 
 **开发模式（支持自动重载）：**
 ```bash
@@ -132,18 +163,19 @@ Parameters: {
 
 ## 配置到 Claude Desktop
 
-在 Claude Desktop 的配置文件中添加：
+### 配置文件位置:
 
-### 配置文件位置：
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+### 方式 1: 使用 npm 包（推荐）
 
 ```json
 {
   "mcpServers": {
     "zentao": {
-      "command": "node",
-      "args": ["E:\\wangfan\\zantao-mcp\\dist\\index.js"],
+      "command": "npx",
+      "args": ["-y", "zentao-mcp-server"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -155,10 +187,35 @@ Parameters: {
 }
 ```
 
-**macOS 路径示例：**
+**说明**:
+- `npx -y` 确保自动使用最新版本
+- 每次启动 Claude Desktop 时会自动检查更新
+
+### 方式 2: 使用本地克隆（开发调试）
+
+```json
+{
+  "mcpServers": {
+    "zentao": {
+      "command": "node",
+      "args": ["D:\\path\\to\\zentao-mcp\\dist\\index.js"],
+      "env": {
+        "ZENTAO_URL": "https://your-zentao-domain.com",
+        "ZENTAO_USERNAME": "your-username",
+        "ZENTAO_PASSWORD": "your-password",
+        "ZENTAO_DEFAULT_PROJECT": "1"
+      }
+    }
+  }
+}
+```
+
+**macOS 路径示例**:
 ```json
 "args": ["/Users/yourname/projects/zentao-mcp/dist/index.js"]
 ```
+
+**说明**: 请将路径替换为您实际的项目路径。
 
 ## 可用工具
 
