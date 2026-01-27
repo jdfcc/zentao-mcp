@@ -57,13 +57,13 @@ jobs:
             ## Installation
 
             ```bash
-            npx zentao-mcp-server
+            npx zentao-mcp
             ```
 
             Or install globally:
 
             ```bash
-            npm install -g zentao-mcp-server
+            npm install -g zentao-mcp
             ```
           draft: false
           prerelease: false
