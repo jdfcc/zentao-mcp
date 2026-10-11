@@ -27,6 +27,7 @@
     "test:live": "npm run build && node test-live-zentao.mjs",
     "test": "npm run test:codex && npm run test:legacy",
     "pack:skill": "pwsh -NoProfile -File scripts/pack-skill.ps1",
+    "test:e2e": "node test-e2e.mjs",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run build",
     "prepack": "npm run build"

@@ -63,56 +63,63 @@ export const ListBugsOutputSchema = z.object({
 
 const RelatedObjectOutputSchema = z.object({
   id: z.string(),
-  name: z.string().optional()
+  name: z.string().nullish()
 });
+
+// 禅道在「关联对象已删除 / 无权限 / 字段从未填写」时，会把本该是字符串的字段返回 null。
+// Bug 详情是原样透传的，所以这里对 null 一律放行——否则整个工具会在 MCP 输出校验阶段
+// 直接失败（实测 Bug 77809：plan.name / story.title / story.status / story.latestVersion
+// / task.name 全为 null，导致 zentao_get_bug_details 完全不可用）。
+const DetailStr = z.string().nullish();
+const DetailNum = z.number().nullish();
 
 export const GetBugDetailsOutputSchema = z.object({
   bug: z.object({
     id: z.string(),
     title: z.string(),
-    status: z.string(),
-    severity: z.number(),
-    priority: z.number(),
-    type: z.string(),
-    os: z.string(),
-    browser: z.string(),
-    hardware: z.string(),
-    steps: z.string(),
-    confirmed: z.string(),
-    activatedCount: z.number(),
-    activatedDate: z.string(),
-    openedBy: z.string(),
-    openedDate: z.string(),
-    openedBuild: z.string(),
-    assignedTo: z.string().optional(),
-    assignedDate: z.string().optional(),
-    deadline: z.string().optional(),
-    resolvedBy: z.string().optional(),
-    resolution: z.string().optional(),
-    resolvedBuild: z.string().optional(),
-    resolvedDate: z.string().optional(),
-    closedBy: z.string().optional(),
-    closedDate: z.string().optional(),
-    duplicateBug: z.string().optional(),
-    relatedBug: z.string().optional(),
-    case: z.string().optional(),
-    caseVersion: z.string().optional(),
+    status: DetailStr,
+    severity: DetailNum,
+    priority: DetailNum,
+    type: DetailStr,
+    os: DetailStr,
+    browser: DetailStr,
+    hardware: DetailStr,
+    steps: DetailStr,
+    confirmed: DetailStr,
+    activatedCount: DetailNum,
+    activatedDate: DetailStr,
+    openedBy: DetailStr,
+    openedDate: DetailStr,
+    openedBuild: DetailStr,
+    assignedTo: DetailStr,
+    assignedDate: DetailStr,
+    deadline: DetailStr,
+    resolvedBy: DetailStr,
+    resolution: DetailStr,
+    resolvedBuild: DetailStr,
+    resolvedDate: DetailStr,
+    closedBy: DetailStr,
+    closedDate: DetailStr,
+    duplicateBug: DetailStr,
+    relatedBug: DetailStr,
+    case: DetailStr,
+    caseVersion: DetailStr,
     project: RelatedObjectOutputSchema,
     product: RelatedObjectOutputSchema,
     execution: RelatedObjectOutputSchema.optional(),
     plan: RelatedObjectOutputSchema.optional(),
     story: z.object({
       id: z.string(),
-      title: z.string(),
-      version: z.string().optional(),
-      status: z.string(),
-      latestVersion: z.string()
-    }).optional(),
+      title: DetailStr,
+      version: DetailStr,
+      status: DetailStr,
+      latestVersion: DetailStr
+    }).nullish(),
     task: RelatedObjectOutputSchema.optional(),
-    lastEditedBy: z.string(),
-    lastEditedDate: z.string(),
+    lastEditedBy: DetailStr,
+    lastEditedDate: DetailStr,
     files: z.array(z.unknown()),
-    keywords: z.string().optional()
+    keywords: DetailStr
   })
 });
 

@@ -404,18 +404,18 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
           } : undefined,
           plan: bug.plan ? {
             id: bug.plan,
-            name: bug.planName
+            name: bug.planName ?? undefined
           } : undefined,
           story: bug.story ? {
             id: bug.story,
-            title: bug.storyTitle,
-            version: bug.storyVersion,
-            status: bug.storyStatus,
-            latestVersion: bug.latestStoryVersion
+            title: bug.storyTitle ?? undefined,
+            version: bug.storyVersion ?? undefined,
+            status: bug.storyStatus ?? undefined,
+            latestVersion: bug.latestStoryVersion ?? undefined
           } : undefined,
           task: bug.task ? {
             id: bug.task,
-            name: bug.taskName
+            name: bug.taskName ?? undefined
           } : undefined,
           lastEditedBy: bug.lastEditedBy,
           lastEditedDate: bug.lastEditedDate,
@@ -476,11 +476,12 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
           }
 
           lines.push('## Related Objects');
-          lines.push(`- **Project**: ${output.project.name} (${output.project.id})`);
-          if (output.execution) lines.push(`- **Execution**: ${output.execution.name} (${output.execution.id})`);
-          if (output.plan) lines.push(`- **Plan**: ${output.plan.name} (${output.plan.id})`);
-          if (output.story) lines.push(`- **Story**: ${output.story.title} (${output.story.id})`);
-          if (output.task) lines.push(`- **Task**: ${output.task.name} (${output.task.id})`);
+          lines.push(`- **Project**: ${output.project.name ?? '(未知)'} (${output.project.id})`);
+          // 关联对象的名称可能为 null（对象已删/无权限），渲染时给出占位而不是打印 "null"
+          if (output.execution) lines.push(`- **Execution**: ${output.execution.name ?? '(未知)'} (${output.execution.id})`);
+          if (output.plan) lines.push(`- **Plan**: ${output.plan.name ?? '(未知)'} (${output.plan.id})`);
+          if (output.story) lines.push(`- **Story**: ${output.story.title ?? '(未知)'} (${output.story.id})`);
+          if (output.task) lines.push(`- **Task**: ${output.task.name ?? '(未知)'} (${output.task.id})`);
           lines.push('');
 
           if (output.lastEditedBy) {

@@ -46,6 +46,8 @@ try {
 
     Copy-Item 'skill/SKILL.md' $stage
     Copy-Item 'mcp-cli.mjs'    $stage
+    # 随包带上自检脚本：用户报「用不了」时可直接跑它定位，无需回仓库
+    Copy-Item 'test-e2e.mjs'   $stage
     Copy-Item 'dist'           $stage -Recurse
     foreach ($opt in @('.env.example', 'LICENSE')) {
         if (Test-Path $opt) { Copy-Item $opt $stage }

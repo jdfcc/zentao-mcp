@@ -319,6 +319,34 @@ npm run test:legacy
 npm run test:live
 ```
 
+### 全量端到端测试（E2E）
+
+```bash
+npm run test:e2e
+```
+
+与上面几个测试的分工不同——**它验证的是用户实际走的那条路径**：
+
+| | 验证对象 | 调用方式 |
+|---|---|---|
+| `test:codex` / `test:legacy` | 工具契约、旧版禅道协议 | 模拟服务，不碰真实禅道 |
+| `test:live` | 客户端类逻辑 | 直接 `import` 客户端类 |
+| **`test:e2e`** | **装好之后到底能不能用** | **通过 `mcp-cli.mjs` 以原生 MCP 协议调用** |
+
+因此它会覆盖 `test:live` 覆盖不到的一层：stdio 握手 → 输入 schema 校验 → 真实 HTTP → **输出 schema 校验** → markdown/JSON 渲染。历史上 `zentao_get_bug_details` 正是因为关联对象名称为 `null` 撞上输出 schema，**整个工具在 MCP 层直接报 -32602 而完全不可用**，而 `test:live` 因为是直接调客户端类、绕过了输出校验，一直显示通过。
+
+覆盖全部 8 个工具，外加过滤、分页、排序、错误路径和跨项目不变量，共 24 个用例（约 90 秒，每个用例独立登录一次）。
+
+默认测试**已安装的 skill**（`~\.agents\skills\zentao`），并从临时目录启动以验证 cwd 无关性；也可指定其它安装位置：
+
+```bash
+# PowerShell
+$env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
+```
+
+> 该脚本随安装包一起分发，所以用户报「用不了」时可以直接跑
+> `node "$env:USERPROFILE\.agents\skills\zentao\test-e2e.mjs"` 定位问题，无需回到仓库。
+
 ### 旧版禅道兼容
 
 对不支持 `/api.php/v1/tokens` 的旧版禅道，设置 `ZENTAO_API_MODE=legacy`。服务会使用 `/api-getsessionid.json` 获取会话，通过 `/user-login.json` 登录，再调用旧版 PATH_INFO JSON 接口。`auto` 模式会在 REST 返回“缺少 code 参数”时自动切换。

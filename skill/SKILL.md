@@ -21,11 +21,14 @@ node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" call <工具名> '<JSON参数>' --conten
 ### 前置条件与故障自愈
 
 配置（禅道地址 / 账号 / 密码）存在 `{{ZENTAO_SKILL_DIR}}\.env`，由安装脚本写入，**每台机器只需配一次**。
-首次使用前建议先探活：
+首次使用前建议先探活——**必须用真实调用，不能只用 `list`**：
 
 ```powershell
-node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" list
+node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" call zentao_list_projects '{"limit":1}' --content-only
 ```
+
+> `list` 只返回本地已注册的工具表，**根本不访问禅道、不验证凭据**——密码填错了它照样「成功」。
+> 想知道连不连得上，只能真的调一次接口。
 
 ⚠️ **如果报认证失败（401 / 登录失败 / `缺少code参数` / 拿不到任何工具）**，说明配置缺失或凭据过期。
 此时**不要反复重试**，直接让用户重跑配置向导即可（会保留其它设置、只更新凭据）：
@@ -34,7 +37,16 @@ node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" list
 & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1))) -Configure
 ```
 
-配置完成后重跑一次上面的 `list` 确认恢复。
+配置完成后重跑一次上面的调用确认恢复。
+
+若仍不通，跑随包分发的全量自检（覆盖全部 8 个工具 + 错误路径，约 90 秒）：
+
+```powershell
+node "{{ZENTAO_SKILL_DIR}}\test-e2e.mjs"
+```
+
+还有一个隐蔽的坑：机器上若残留 `ZENTAO_*` 环境变量，会**覆盖 `.env`**
+（dotenv 默认不覆盖已存在的环境变量），表现为「`.env` 明明是对的却认证失败」。先清掉它们再试。
 
 ## ⭐ 查「我的」东西：优先用 my-* 工具
 
