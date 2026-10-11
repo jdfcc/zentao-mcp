@@ -13,6 +13,11 @@ jobs:
       contents: write
       id-token: write
 
+    # 提到 job 级，供下方 publish 步骤的 if 条件判断是否配了 token
+    # （secrets 上下文不能直接用在步骤级 if 里）
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,16 +46,13 @@ jobs:
         run: npm test
 
       # 自包含 skill 安装包（含 dist/ 与生产依赖），供 install.ps1 下载。
-      # 必须在 npm publish 之前跑：打包失败就不该发版。
+      # 必须在发版之前跑：打包失败就不该发版。
       - name: Pack skill bundle
         shell: pwsh
         run: ./scripts/pack-skill.ps1
 
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
+      # 先发 Release。skill 安装包是主要分发渠道，不能因为 npm 那边出问题就一起没了
+      # （步骤失败会跳过后续步骤——这正是之前「tag 推了却没有 Release」的一个潜在原因）。
       - name: Create GitHub Release and attach bundle
         uses: softprops/action-gh-release@v2
         with:
@@ -85,5 +87,13 @@ jobs:
             ## 校验
 
             安装包的 SHA256 见 `zentao-skill.zip.sha256`。
-        draft: false
-        prerelease: false
+          draft: false
+          prerelease: false
+
+      # npm 是次要渠道：没配 NPM_TOKEN 就跳过；即使配了而发布失败，也不连累上面的 Release。
+      - name: Publish to npm
+        if: env.NPM_TOKEN != ''
+        continue-on-error: true
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
