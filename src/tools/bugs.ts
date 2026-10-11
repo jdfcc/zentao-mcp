@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import ZentaoClient from '../services/zentao-client.js';
 import { ListBugsInputSchema, GetBugDetailsInputSchema, type ListBugsInput, type GetBugDetailsInput } from '../schemas/tool-input-schemas.js';
+import { ListBugsOutputSchema, GetBugDetailsOutputSchema } from '../schemas/tool-output-schemas.js';
 import { Bug, BugListItem, PaginatedBugsOutput } from '../types.js';
 import { CHARACTER_LIMIT } from '../constants.js';
 
@@ -78,11 +79,12 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
   - 如果凭据无效,返回 "Error: Authentication failed"
   - 成功时返回带有分页信息的格式化 Bug 列表`,
       inputSchema: ListBugsInputSchema,
+      outputSchema: ListBugsOutputSchema,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: true
+        openWorldHint: false
       }
     },
     async (params: ListBugsInput) => {
@@ -91,6 +93,7 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
         
         if (!projectId) {
           return {
+            isError: true,
             content: [{
               type: 'text',
               text: 'Error: Project ID is required. Either specify projectId parameter or set ZENTAO_DEFAULT_PROJECT environment variable.'
@@ -300,6 +303,7 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
+          isError: true,
           content: [{
             type: 'text',
             text: `Error: ${errorMessage}`
@@ -342,11 +346,12 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
   - 如果凭据无效,返回 "Error: Authentication failed"
   - 成功时返回完整的 Bug 详情`,
       inputSchema: GetBugDetailsInputSchema,
+      outputSchema: GetBugDetailsOutputSchema,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: true
+        openWorldHint: false
       }
     },
     async (params: GetBugDetailsInput) => {
@@ -503,6 +508,7 @@ export function registerBugTools(server: McpServer, zentaoClient: ZentaoClient, 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
+          isError: true,
           content: [{
             type: 'text',
             text: `Error: ${errorMessage}`

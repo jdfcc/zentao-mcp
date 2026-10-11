@@ -5,6 +5,7 @@ export interface ZentaoConfig {
   defaultProject?: string;
   ttlSeconds?: number;
   logLevel?: string;
+  apiMode?: 'auto' | 'rest' | 'legacy';
 }
 
 export interface ZentaoApiResponse<T = any> {
@@ -134,6 +135,63 @@ export interface ProjectsResponse extends ZentaoPagedResponse {
 
 export interface BugsResponse extends ZentaoPagedResponse {
   bugs: Bug[];
+}
+
+export interface Task {
+  id: string;
+  project: string;
+  execution: string;
+  parent: string;
+  name: string;
+  type: string;
+  status: string;
+  pri: string;
+  estimate: string;
+  consumed: string;
+  left: string;
+  deadline: string;
+  assignedTo: string;
+  assignedDate: string;
+  openedBy: string;
+  openedDate: string;
+  finishedBy: string;
+  finishedDate: string;
+  closedBy: string;
+  closedDate: string;
+  story: string;
+}
+
+export interface TasksResponse extends ZentaoPagedResponse {
+  tasks: Task[];
+}
+
+export interface TaskListItem {
+  id: string;
+  name: string;
+  status: string;
+  priority: number;
+  project: string;
+  execution: string;
+  assignedTo?: string;
+  assignedDate?: string;
+  openedBy: string;
+  openedDate: string;
+  deadline?: string;
+  estimate: number;
+  consumed: number;
+  left: number;
+}
+
+export interface PaginatedTasksOutput {
+  tasks: TaskListItem[];
+  total: number;
+  count: number;
+  offset: number;
+  has_more: boolean;
+  next_offset?: number;
+  filters?: { projectId?: number; status?: string; assignedTo?: string; openedBy?: string; };
+  truncated?: boolean;
+  truncation_message?: string;
 }
 
 export interface BugDetailResponse extends Bug {

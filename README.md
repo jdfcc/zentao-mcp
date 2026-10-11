@@ -6,18 +6,20 @@
 [![CI](https://github.com/orange29233/zantao-mcp/workflows/CI/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
 [![Release](https://github.com/orange29233/zantao-mcp/workflows/Release/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
 
-禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供查询项目和 Bug 的工具。
+禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供查询项目和 Bug 的工具，同时支持 Codex CLI/IDE 与 Claude Desktop/Claude Code。
 
 ## 功能特性
 
 - 查询项目列表，支持状态过滤和分页
 - 查询 Bug 列表，支持多维度过滤（项目、状态、严重程度、优先级、指派给、创建者、日期范围）
+- 查询项目任务列表，支持按状态、指派人、创建人和日期筛选
 - 获取 Bug 详细信息
 - 自动认证和 Token 缓存（TTL 可配置）
 - 支持 Markdown 和 JSON 两种响应格式
 - 完整的错误处理和用户友好的错误消息
 - TypeScript 类型安全
 - Zod 运行时输入验证
+- Codex 可读的结构化输出 schema 和安全注解
 
 ## npm 包信息
 
@@ -46,7 +48,7 @@ npx @orange29233/zentao-mcp
 
 ```bash
 npm install -g @orange29233/zentao-mcp
-@orange29233/zentao-mcp
+zentao-mcp
 ```
 
 ### 方式 2: 从源码安装（开发调试）
@@ -71,10 +73,12 @@ cp .env.example .env
 # 必需配置
 ZENTAO_URL=https://your-zentao-domain.com
 ZENTAO_USERNAME=your-username
-ZENTAO_PASSWORD=your-password
+# 密码必须用引号包裹，否则 # 及其后内容会被当作注释
+ZENTAO_PASSWORD="your-password"
 ZENTAO_DEFAULT_PROJECT=1
 
 # 可选配置
+ZENTAO_API_MODE=auto
 TTL_SECONDS=3600
 LOG_LEVEL=info
 ```
@@ -87,6 +91,7 @@ LOG_LEVEL=info
 | `ZENTAO_USERNAME` | 认证用户名 | - |
 | `ZENTAO_PASSWORD` | 认证密码 | - |
 | `ZENTAO_DEFAULT_PROJECT` | 默认项目 ID | - |
+| `ZENTAO_API_MODE` | API 模式：auto/rest/legacy；旧版禅道使用 legacy | auto |
 | `TTL_SECONDS` | Token 缓存时间（秒） | 3600 |
 | `LOG_LEVEL` | 日志级别 (info/debug/error) | info |
 
@@ -161,7 +166,103 @@ Parameters: {
 }
 ```
 
-## 配置到 Claude Desktop
+**5. 查询项目任务：**
+```
+Tool: zentao_list_tasks
+Parameters: {
+  "projectId": 1,
+  "assignedTo": "your-username",
+  "status": "doing"
+}
+```
+
+## 配置到 Codex
+
+该服务器使用标准 MCP stdio 传输，Codex CLI 和 Codex IDE 扩展共享同一份 `~/.codex/config.toml` 配置。
+
+### 方式 1：使用 Codex CLI 注册
+
+```bash
+codex mcp add zentao \
+  --env ZENTAO_URL=https://your-zentao-domain.com \
+  --env ZENTAO_USERNAME=your-username \
+  --env ZENTAO_PASSWORD=your-password \
+  --env ZENTAO_DEFAULT_PROJECT=1 \
+  -- npx -y @orange29233/zentao-mcp
+```
+
+PowerShell 中可以写成一行：
+
+```powershell
+codex mcp add zentao --env ZENTAO_URL=https://your-zentao-domain.com --env ZENTAO_USERNAME=your-username --env ZENTAO_PASSWORD=your-password --env ZENTAO_DEFAULT_PROJECT=1 -- npx -y @orange29233/zentao-mcp
+```
+
+验证配置：
+
+```bash
+codex mcp list
+```
+
+### 方式 2：直接编辑 Codex TOML 配置
+
+将项目中的 `codex.example.toml` 复制到 `~/.codex/config.toml`，或合并下列内容：
+
+```toml
+[mcp_servers.zentao]
+command = "npx"
+args = ["-y", "@orange29233/zentao-mcp"]
+startup_timeout_sec = 30
+tool_timeout_sec = 60
+enabled = true
+
+[mcp_servers.zentao.env]
+ZENTAO_URL = "https://your-zentao-domain.com"
+ZENTAO_USERNAME = "your-username"
+ZENTAO_PASSWORD = "your-password"
+ZENTAO_DEFAULT_PROJECT = "1"
+ZENTAO_API_MODE = "auto"
+TTL_SECONDS = "3600"
+LOG_LEVEL = "info"
+```
+
+Windows 上如果 Codex 找不到 `npx`，将 `command` 改为 `npx.cmd`。修改配置后重新启动 Codex 会话以重新加载工具。
+
+### 从本地源码运行
+
+先执行 `npm install && npm run build`，再将 `command` 和 `args` 改为：
+
+```toml
+[mcp_servers.zentao]
+command = "node"
+args = ["D:/path/to/zentao-mcp/dist/index.js"]
+```
+
+建议在使用该 MCP 的项目 `AGENTS.md` 中加上：
+
+```md
+当需要查询禅道项目或 Bug 时，优先使用 zentao MCP 工具。未知项目 ID 时，先调用 zentao_list_projects。
+```
+
+### Codex 兼容性自测
+
+```bash
+npm run test:codex
+npm run test:legacy
+```
+
+第一个测试通过 stdio 启动服务并检查 Codex 工具契约；第二个测试使用本地模拟服务验证旧版禅道自动探测、session 登录及项目/Bug 查询。两者都不会访问真实禅道数据。
+
+需要使用本地 `.env` 对真实禅道执行只读烟雾测试时，运行：
+
+```bash
+npm run test:live
+```
+
+### 旧版禅道兼容
+
+对不支持 `/api.php/v1/tokens` 的旧版禅道，设置 `ZENTAO_API_MODE=legacy`。服务会使用 `/api-getsessionid.json` 获取会话，通过 `/user-login.json` 登录，再调用旧版 PATH_INFO JSON 接口。`auto` 模式会在 REST 返回“缺少 code 参数”时自动切换。
+
+## 配置到 Claude Desktop / Claude Code
 
 ### 配置文件位置:
 
@@ -254,6 +355,19 @@ Parameters: {
 - `bugId`: Bug ID（必需）
 - `response_format`: 输出格式（markdown/json，默认: markdown）
 
+### `zentao_list_tasks`
+
+查询项目任务列表。
+
+**参数：**
+- `projectId`: 项目 ID（如未指定则使用默认项目）
+- `status`: 任务状态（all/wait/doing/done/closed/cancel）
+- `assignedTo`: 按指派用户过滤
+- `openedBy`: 按创建者过滤
+- `startDate`、`endDate`: 创建日期范围（YYYY-MM-DD）
+- `limit`、`offset`: 分页参数
+- `response_format`: 输出格式（markdown/json，默认: markdown）
+
 ## API 端点映射
 
 | 工具 | API 端点 | 说明 |
@@ -261,6 +375,7 @@ Parameters: {
 | zentao_list_projects | `GET /api.php/v1/projects` | 获取项目列表 |
 | zentao_list_bugs | `GET /api.php/v1/projects/:projectId/bugs` | 获取项目 Bug 列表 |
 | zentao_get_bug_details | `GET /api.php/v1/bugs/:bugId` | 获取 Bug 详情 |
+| zentao_list_tasks | `GET /api.php/v1/projects/:projectId/tasks` | 获取项目任务 |
 | 认证 | `POST /api.php/v1/tokens` | 获取访问令牌 |
 
 ## 错误处理

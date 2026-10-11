@@ -3,6 +3,7 @@ import { z } from 'zod';
 import axios from 'axios';
 import ZentaoClient from '../services/zentao-client.js';
 import { ListProjectsInputSchema, type ListProjectsInput } from '../schemas/tool-input-schemas.js';
+import { ListProjectsOutputSchema } from '../schemas/tool-output-schemas.js';
 import { Project } from '../types.js';
 import { CHARACTER_LIMIT } from '../constants.js';
 
@@ -19,6 +20,7 @@ export function registerProjectTools(server: McpServer, zentaoClient: ZentaoClie
   - limit (number): 返回的最大结果数,范围 1-100 (默认: 20)
   - offset (number): 分页跳过的结果数 (默认: 0)
   - status (string): 按项目状态筛选 - 'all'(全部), 'active'(进行中), 'closed'(已关闭) (可选)
+  - response_format (string): 输出格式 - 'markdown' 供人类阅读, 'json' 供机器读取 (默认: markdown)
 
 返回:
   JSON 格式时,返回结构化数据:
@@ -55,11 +57,12 @@ export function registerProjectTools(server: McpServer, zentaoClient: ZentaoClie
   - 如果服务器无法访问,返回 "Error: Network connection failed"
   - 成功时返回带有分页信息的格式化项目列表`,
       inputSchema: ListProjectsInputSchema,
+      outputSchema: ListProjectsOutputSchema,
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
-        openWorldHint: true
+        openWorldHint: false
       }
     },
     async (params: ListProjectsInput) => {
@@ -111,7 +114,7 @@ export function registerProjectTools(server: McpServer, zentaoClient: ZentaoClie
         };
 
         let textContent: string;
-        if ((params as any).response_format === 'json') {
+        if (params.response_format === 'json') {
           textContent = JSON.stringify(output, null, 2);
         } else {
           const lines = [
@@ -176,6 +179,7 @@ export function registerProjectTools(server: McpServer, zentaoClient: ZentaoClie
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
+          isError: true,
           content: [{
             type: 'text',
             text: `Error: ${errorMessage}`

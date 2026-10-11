@@ -1,0 +1,16 @@
+# Copy this block to ~/.codex/config.toml and replace the placeholder values.
+[mcp_servers.zentao]
+command = "npx"
+args = ["-y", "@orange29233/zentao-mcp"]
+startup_timeout_sec = 30
+tool_timeout_sec = 60
+enabled = true
+
+[mcp_servers.zentao.env]
+ZENTAO_URL = "https://your-zentao-domain.com"
+ZENTAO_USERNAME = "your-username"
+ZENTAO_PASSWORD = "your-password"
+ZENTAO_DEFAULT_PROJECT = "1"
+ZENTAO_API_MODE = "auto"
+TTL_SECONDS = "3600"
+LOG_LEVEL = "info"

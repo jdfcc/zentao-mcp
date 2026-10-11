@@ -22,6 +22,15 @@ export enum BugStatus {
   CLOSED = 'closed'
 }
 
+export enum TaskStatus {
+  ALL = 'all',
+  WAIT = 'wait',
+  DOING = 'doing',
+  DONE = 'done',
+  CLOSED = 'closed',
+  CANCEL = 'cancel'
+}
+
 export enum Severity {
   CRITICAL = '1',
   SERIOUS = '2',
