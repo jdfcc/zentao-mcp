@@ -1,0 +1,47 @@
+src/constants.ts
+  9be86086610f6049 25-31
+src/types.ts
+  9be86086610f6049 8,140-194
+test-codex-compat.mjs
+  9be86086610f6049 1-58
+test-legacy-client.mjs
+  9be86086610f6049 1-119
+src/services/zentao-client.ts
+  9be86086610f6049 3,8-12,14-27,32-34,41,55,59-68,71-89,93,96-141,143,145-146,150,152-168,170-182,184-200,203,206-207,209-210,212,214-222,224,226-241,250-253,255-261,265,269-273,275-289,291-305,307-317,321-330,334-358,362-368
+test-live-zentao.mjs
+  9be86086610f6049 1-55
+src/tools/tasks.ts
+  9be86086610f6049 1-44
+src/index.ts
+  9be86086610f6049 2-4,10,14-21,57-62,85-86,94-102,106,119
+src/schemas/tool-input-schemas.ts
+  9be86086610f6049 25-28,91-105
+src/schemas/tool-output-schemas.ts
+  9be86086610f6049 1-131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.18",
+  "base_commit_sha": "a26d5c92af39300b59183556b3d043c11af1762c",
+  "prompts": {
+    "9be86086610f6049": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12a2b-7c91-7bb3-acd2-913a04f6c1d8",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "jdfcc <3039898075@qq.com>",
+      "messages": [],
+      "total_additions": 889,
+      "total_deletions": 192,
+      "accepted_lines": 1166,
+      "overriden_lines": 0,
+      "messages_url": "http://106.14.183.34:38080/cas/75056ecb19020f7eec3a910bce98dd25c4fefe08e58364e349fd6d3f13d49125"
+    }
+  },
+  "humans": {
+    "h_dc9c6a33b8b680": {
+      "author": "jdfcc"
+    }
+  }
+}
