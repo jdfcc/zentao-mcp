@@ -37,33 +37,53 @@ jobs:
           fi
           echo "Build successful!"
 
+      - name: Run tests
+        run: npm test
+
+      # 自包含 skill 安装包（含 dist/ 与生产依赖），供 install.ps1 下载。
+      # 必须在 npm publish 之前跑：打包失败就不该发版。
+      - name: Pack skill bundle
+        shell: pwsh
+        run: ./scripts/pack-skill.ps1
+
       - name: Publish to npm
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release and attach bundle
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          files: |
+            dist-release/zentao-skill.zip
+            dist-release/zentao-skill.zip.sha256
           body: |
-            ## Changes in this Release
+            ## 安装（推荐：skill 方式）
 
-            See the [changelog](https://github.com/orange29233/zantao-mcp/blob/main/README.md) for details.
+            一条命令完成下载 + 注册到 `~/.agents/skills/zentao` + 配置向导 + 连接自检。
+            **无需注册 MCP server**，装好后任意项目目录都能用。
 
-            ## Installation
-
-            ```bash
-            npx zentao-mcp
+            ```powershell
+            irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1 | iex
             ```
 
-            Or install globally:
+            重新配置凭据（升级 / 换账号）：
+
+            ```powershell
+            & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1))) -Configure
+            ```
+
+            离线或内网安装：下载下面的 `zentao-skill.zip`，然后
+            `./install.ps1 -LocalZip .\zentao-skill.zip`
+
+            ## npm 方式
 
             ```bash
-            npm install -g zentao-mcp
+            npx @jdfcc/zentao-mcp
             ```
-          draft: false
-          prerelease: false
+
+            ## 校验
+
+            安装包的 SHA256 见 `zentao-skill.zip.sha256`。
+        draft: false
+        prerelease: false

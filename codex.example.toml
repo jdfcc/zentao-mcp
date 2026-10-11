@@ -1,7 +1,7 @@
 # Copy this block to ~/.codex/config.toml and replace the placeholder values.
 [mcp_servers.zentao]
 command = "npx"
-args = ["-y", "@orange29233/zentao-mcp"]
+args = ["-y", "@jdfcc/zentao-mcp"]
 startup_timeout_sec = 30
 tool_timeout_sec = 60
 enabled = true

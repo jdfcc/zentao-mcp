@@ -10,3 +10,4 @@ dist/
 .opencode/
 .claude/
 CLAUDE.md
+dist-release/

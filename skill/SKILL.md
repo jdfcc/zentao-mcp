@@ -5,17 +5,36 @@ description: 查询禅道项目、Bug、任务、需求，以及指派给我的�
 
 # 禅道查询
 
-本仓库内置了一个 MCP 客户端脚本，可直接以原生 MCP 协议查询禅道，无需注册 MCP server。
+本 skill 自带一个零依赖的 MCP 客户端脚本（`mcp-cli.mjs`），**充当 MCP Host 直接与禅道 MCP server 交换
+JSON-RPC 报文**——因此**不需要**在 AI 工具里注册任何 MCP server，开箱即用。
 
-在 `D:\zendao\zentao-mcp` 目录下执行：
+**无论当前工作目录是哪个项目，都用绝对路径调用**（脚本会自己处理 cwd 与配置）：
 
 ```powershell
-node mcp-cli.mjs call <工具名> '<JSON参数>' --content-only
+node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" call <工具名> '<JSON参数>' --content-only
 ```
 
 - `--content-only`：只输出 markdown，**上下文占用最小，默认用这个**
 - `--json`：只输出紧凑 JSON，需要程序处理或落文件时用
 - 不加开关：markdown 和 JSON 都输出，占用约为前者的 3 倍
+
+### 前置条件与故障自愈
+
+配置（禅道地址 / 账号 / 密码）存在 `{{ZENTAO_SKILL_DIR}}\.env`，由安装脚本写入，**每台机器只需配一次**。
+首次使用前建议先探活：
+
+```powershell
+node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" list
+```
+
+⚠️ **如果报认证失败（401 / 登录失败 / `缺少code参数` / 拿不到任何工具）**，说明配置缺失或凭据过期。
+此时**不要反复重试**，直接让用户重跑配置向导即可（会保留其它设置、只更新凭据）：
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1))) -Configure
+```
+
+配置完成后重跑一次上面的 `list` 确认恢复。
 
 ## ⭐ 查「我的」东西：优先用 my-* 工具
 
@@ -30,7 +49,7 @@ node mcp-cli.mjs call <工具名> '<JSON参数>' --content-only
 | `zentao_list_my_stories` | `/my-story.html` | `status` `stage`（同 `zentao_list_stories`）`keyword` `limit` `offset` |
 
 ```powershell
-node mcp-cli.mjs call zentao_list_my_tasks '{"limit":20}' --content-only
+node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" call zentao_list_my_tasks '{"limit":20}' --content-only
 ```
 
 ⚠️ **单次最多 20 条，且分页参数被服务端忽略。** 实测加 `?recPerPage=100&pageID=2` 完全无效，
@@ -77,7 +96,7 @@ node mcp-cli.mjs call zentao_list_my_tasks '{"limit":20}' --content-only
 1. **每次调用都会重新登录禅道（约 2 秒）** —— 脚本每次冷启动，进程内的 token 缓存活不过单次调用。要查多个项目时，优先用**单次调用 + 大 `limit` + 本地筛选**，而不是反复调用。
 2. **结果过大时 `pwsh` 会截尾丢开头** —— 超过约 50 条记录时不要直接读 stdout，改为落文件（**需求尤其容易超**，例如项目 530 有 313 条需求）：
    ```powershell
-   node mcp-cli.mjs call zentao_list_bugs '{"projectId":534,"limit":100}' --json > bugs.json
+   node "{{ZENTAO_SKILL_DIR}}\mcp-cli.mjs" call zentao_list_bugs '{"projectId":534,"limit":100}' --json > bugs.json
    ```
    然后用文件读取工具分页读 `bugs.json`。
 3. **`assignedTo` 会被禅道改写成 `closed`** —— 任务被关闭时指派人字段会被**覆写成字面量 `closed`**。实测全库 1329 条任务里 **1052 条（79%）** 的指派人已被抹掉，只剩 105 条是真人。**历史上指派给某人、且已关闭的任务查不回来**——原始信息在禅道侧已被覆盖，不是查询方式的问题。

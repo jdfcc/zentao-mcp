@@ -1,10 +1,10 @@
 # Zentao MCP Server
 
-[![npm version](https://badge.fury.io/js/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
-[![Node.js Version](https://img.shields.io/node/v/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
+[![npm version](https://badge.fury.io/js/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
+[![Node.js Version](https://img.shields.io/node/v/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/orange29233/zantao-mcp/workflows/CI/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
-[![Release](https://github.com/orange29233/zantao-mcp/workflows/Release/badge.svg)](https://github.com/orange29233/zantao-mcp/actions)
+[![CI](https://github.com/jdfcc/zentao-mcp/workflows/CI/badge.svg)](https://github.com/jdfcc/zentao-mcp/actions)
+[![Release](https://github.com/jdfcc/zentao-mcp/workflows/Release/badge.svg)](https://github.com/jdfcc/zentao-mcp/actions)
 
 禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供查询项目和 Bug 的工具，同时支持 Codex CLI/IDE 与 Claude Desktop/Claude Code。
 
@@ -23,11 +23,11 @@
 
 ## npm 包信息
 
-- **包名**: `@orange29233/zentao-mcp`
-- **最新版本**: [![npm version](https://badge.fury.io/js/@orange29233/zentao-mcp.svg)](https://www.npmjs.com/package/@orange29233/zentao-mcp)
+- **包名**: `@jdfcc/zentao-mcp`
+- **最新版本**: [![npm version](https://badge.fury.io/js/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
 - **许可证**: MIT
 - **Node.js 要求**: >= 18
-- **仓库**: https://github.com/orange29233/zantao-mcp
+- **仓库**: https://github.com/jdfcc/zentao-mcp
 
 ## 前置要求
 
@@ -36,22 +36,61 @@
 
 ## 快速开始
 
-### 方式 1: 使用 npm 包（推荐）
+### 方式 1: 一键安装 skill（推荐，Windows）
+
+一条命令完成**下载 + 注册到用户级 skill 目录 + 配置向导 + 连接自检**：
+
+```powershell
+irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1 | iex
+```
+
+装完后 AI 工具启动时会**自动扫描到该 skill**，在**任意项目目录**下都能查询禅道——
+不需要注册 MCP server，也不依赖项目内文件。
+
+**它做了什么**
+
+| 步骤 | 说明 |
+|---|---|
+| 1 | 从 GitHub Release 下载自包含安装包（含 `dist/` 与生产依赖，**用户端无需 npm install / 无需构建**） |
+| 2 | 解压到 `$env:USERPROFILE\.agents\skills\zentao` |
+| 3 | 把 `SKILL.md` 里的 `{{ZENTAO_SKILL_DIR}}` 占位符解析成真实绝对路径 |
+| 4 | 无 `.env` 时进入配置向导（禅道地址 / 账号 / 密码 / 默认项目）；**已有 `.env` 一律保留**，升级不丢配置 |
+| 5 | 写入 `.zentao-source`（版本 / 来源 / SHA256 / 安装时间） |
+| 6 | 自检：真的拉起 MCP server 并拉取工具列表，连不上会明确报错而不是装完才发现 |
+
+**重新配置**（换账号、密码过期）：
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1))) -Configure
+```
+
+> `irm | iex` 无法直接传参，所以需要参数时用上面的 `scriptblock` 写法。也支持用环境变量做全非交互安装：
+> ```powershell
+> $env:ZENTAO_URL='https://zentao.example.com'; $env:ZENTAO_USERNAME='me'; $env:ZENTAO_PASSWORD='***'
+> irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1 | iex
+> ```
+
+**离线 / 内网**：从 [Releases](https://github.com/jdfcc/zentao-mcp/releases) 下载 `zentao-skill.zip`，然后
+```powershell
+./install.ps1 -LocalZip .\zentao-skill.zip
+```
+
+### 方式 2: 使用 npm 包
 
 直接使用 npx，无需安装：
 
 ```bash
-npx @orange29233/zentao-mcp
+npx @jdfcc/zentao-mcp
 ```
 
 或全局安装：
 
 ```bash
-npm install -g @orange29233/zentao-mcp
+npm install -g @jdfcc/zentao-mcp
 zentao-mcp
 ```
 
-### 方式 2: 从源码安装（开发调试）
+### 方式 3: 从源码安装（开发调试）
 
 #### 1. 安装依赖
 
@@ -208,13 +247,13 @@ codex mcp add zentao \
   --env ZENTAO_USERNAME=your-username \
   --env ZENTAO_PASSWORD=your-password \
   --env ZENTAO_DEFAULT_PROJECT=1 \
-  -- npx -y @orange29233/zentao-mcp
+  -- npx -y @jdfcc/zentao-mcp
 ```
 
 PowerShell 中可以写成一行：
 
 ```powershell
-codex mcp add zentao --env ZENTAO_URL=https://your-zentao-domain.com --env ZENTAO_USERNAME=your-username --env ZENTAO_PASSWORD=your-password --env ZENTAO_DEFAULT_PROJECT=1 -- npx -y @orange29233/zentao-mcp
+codex mcp add zentao --env ZENTAO_URL=https://your-zentao-domain.com --env ZENTAO_USERNAME=your-username --env ZENTAO_PASSWORD=your-password --env ZENTAO_DEFAULT_PROJECT=1 -- npx -y @jdfcc/zentao-mcp
 ```
 
 验证配置：
@@ -230,7 +269,7 @@ codex mcp list
 ```toml
 [mcp_servers.zentao]
 command = "npx"
-args = ["-y", "@orange29233/zentao-mcp"]
+args = ["-y", "@jdfcc/zentao-mcp"]
 startup_timeout_sec = 30
 tool_timeout_sec = 60
 enabled = true
@@ -298,7 +337,7 @@ npm run test:live
   "mcpServers": {
     "zentao": {
       "command": "npx",
-      "args": ["-y", "@orange29233/zentao-mcp"],
+      "args": ["-y", "@jdfcc/zentao-mcp"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -321,7 +360,7 @@ npm run test:live
   "mcpServers": {
     "zentao": {
       "command": "node",
-      "args": ["D:\\path\\to\\@orange29233/zentao-mcp\\dist\\index.js"],
+      "args": ["D:\\path\\to\\@jdfcc/zentao-mcp\\dist\\index.js"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -335,7 +374,7 @@ npm run test:live
 
 **macOS 路径示例**:
 ```json
-"args": ["/Users/yourname/projects/@orange29233/zentao-mcp/dist/index.js"]
+"args": ["/Users/yourname/projects/@jdfcc/zentao-mcp/dist/index.js"]
 ```
 
 **说明**: 请将路径替换为您实际的项目路径。
