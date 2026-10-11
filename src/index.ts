@@ -8,6 +8,8 @@ import ZentaoClient from './services/zentao-client.js';
 import { registerProjectTools } from './tools/projects.js';
 import { registerBugTools } from './tools/bugs.js';
 import { registerTaskTools } from './tools/tasks.js';
+import { registerStoryTools } from './tools/stories.js';
+import { registerMyTools } from './tools/my.js';
 import { ZentaoConfig } from './types.js';
 import { DEFAULT_TTL_SECONDS, DEFAULT_LIMIT } from './constants.js';
 
@@ -104,6 +106,8 @@ async function main() {
   registerProjectTools(server, zentaoClient);
   registerBugTools(server, zentaoClient, config.defaultProject);
   registerTaskTools(server, zentaoClient, config.defaultProject);
+  registerStoryTools(server, zentaoClient, config.defaultProject);
+  registerMyTools(server, zentaoClient);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

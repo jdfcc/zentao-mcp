@@ -9,7 +9,9 @@ import {
   Project,
   Bug,
   Task,
-  TasksResponse
+  TasksResponse,
+  Story,
+  StoriesResponse
 } from '../types.js';
 import { API_TIMEOUT, DEFAULT_TTL_SECONDS } from '../constants.js';
 
@@ -311,10 +313,43 @@ class ZentaoClient {
   }
 
   private normalizeTask(value: Record<string, any>): Task {
-    const defaults: Task = { id: '', project: '', execution: '', parent: '', name: '', type: '', status: '', pri: '', estimate: '0', consumed: '0', left: '0', deadline: '', assignedTo: '', assignedDate: '', openedBy: '', openedDate: '', finishedBy: '', finishedDate: '', closedBy: '', closedDate: '', story: '' };
+    const defaults: Task = { id: '', project: '', execution: '', parent: '', name: '', type: '', status: '', pri: '', estimate: '0', consumed: '0', left: '0', deadline: '', assignedTo: '', assignedDate: '', openedBy: '', openedDate: '', finishedBy: '', finishedDate: '', closedBy: '', closedDate: '', story: '', projectName: '' };
     const task = { ...defaults, ...value } as Task;
     for (const key of Object.keys(defaults) as Array<keyof Task>) task[key] = String(task[key] ?? defaults[key]);
     return task;
+  }
+
+  private normalizeStory(value: Record<string, any>): Story {
+    const defaults: Story = { id: '', product: '', branch: '', module: '', plan: '', source: '', title: '', keywords: '', pri: '0', estimate: '0', status: '', stage: '', category: '', version: '1', openedBy: '', openedDate: '', assignedTo: '', assignedDate: '', reviewedBy: '', reviewedDate: '', closedBy: '', closedDate: '', closedReason: '', lastEditedBy: '', lastEditedDate: '', parent: '0', childStories: '', linkStories: '', duplicateStory: '' };
+    const story = { ...defaults, ...value } as Story;
+    for (const key of Object.keys(defaults) as Array<keyof Story>) story[key] = String(story[key] ?? defaults[key]);
+    return story;
+  }
+
+  /**
+   * 旧版 project-story 返回的 stories 可能是扁平数组，也可能是按产品/计划分组的嵌套对象
+   * （stories[productID][storyID] = story）。这里递归展平并按 id 去重，两种形态都能正确处理。
+   */
+  private flattenStories(value: unknown): Story[] {
+    const out: Story[] = [];
+    const seen = new Set<string>();
+    const walk = (node: unknown, depth: number): void => {
+      if (!node || typeof node !== 'object' || depth > 4) return;
+      const entries = Array.isArray(node) ? node : Object.values(node as Record<string, unknown>);
+      for (const entry of entries) {
+        if (!entry || typeof entry !== 'object') continue;
+        const record = entry as Record<string, any>;
+        // 需求对象一定同时带 id 和 title；分组节点两者都没有
+        if (record.id !== undefined && record.title !== undefined) {
+          const story = this.normalizeStory(record);
+          if (!seen.has(story.id)) { seen.add(story.id); out.push(story); }
+        } else {
+          walk(entry, depth + 1);
+        }
+      }
+    };
+    walk(value, 0);
+    return out;
   }
 
   async getProjects(): Promise<ProjectsResponse> {
@@ -353,9 +388,99 @@ class ZentaoClient {
 
     const requestedCount = Number(params?.offset ?? 0) + Number(params?.limit ?? 100);
     const recPerPage = Math.max(100, Math.min(requestedCount, 1000));
-    const data = await this.legacyPageRequest(`project-task-${projectId}-0-all-0-${recPerPage}-1.json`, 'project.task');
+    // 旧版 PATH_INFO 签名为:
+    //   project-task-{项目ID}-{status}-{param}-{orderBy}-{recTotal}-{recPerPage}-{pageID}.json
+    // 原实现 `-0-all-0-{recPerPage}-1` 两个错都在:status 位放了 0(无效状态 → recTotal 恒为 0、
+    // 任务列表永远为空),且整体少一个参数,导致 recPerPage 被错位解析成 pageID。
+    // 这里拉全部状态(status=all),状态筛选交由调用方在本地做。
+    const data = await this.legacyPageRequest(`project-task-${projectId}-all-0-id_desc-0-${recPerPage}-1.json`, 'project.task');
+    const topLevel = this.collectionValues<Record<string, any>>(data.tasks).map(task => this.normalizeTask(task));
+
+    // 子任务不在列表里。project-task 只返回顶层任务：凡是有子任务的父任务，其 parent 被标为 -1
+    // （普通顶层任务为 0），子任务本身既不出现在 tasks 中、也不计入那 210 条，但会计入 recTotal。
+    // 实测 530: 210 顶层 + 36 子 = 246、534: 271 + 16 = 287，与 recTotal 完全吻合。
+    // 子任务只能通过 task-view-{父ID}.json 的 task.children 单独取。
+    const parentIds = topLevel.filter(task => Number(task.parent) === -1).map(task => task.id);
+    const childLists = await Promise.all(parentIds.map(id => this.fetchTaskChildren(id)));
+
+    const merged = new Map<string, Task>();
+    for (const task of [...topLevel, ...childLists.flat()]) {
+      if (task.id) merged.set(task.id, task);
+    }
+
+    // 服务端会忽略 orderBy（实测 id_desc 与 id_asc 返回完全相同的顺序），这里按 id 倒序补齐语义，
+    // 保证"最新在前"是确定的，而不是听天由命。
+    const tasks = [...merged.values()].sort((a, b) => Number(b.id) - Number(a.id));
+    const serverRecTotal = Number(data.recTotal);
+    return {
+      page: 1, total: tasks.length, limit: tasks.length, tasks,
+      // 供调用方判断是否仍有缺口；正常情况两者相等
+      serverRecTotal: Number.isFinite(serverRecTotal) ? serverRecTotal : undefined
+    };
+  }
+
+  /** 取某个父任务下的子任务。单个失败不影响主列表，返回空数组。 */
+  private async fetchTaskChildren(parentId: string): Promise<Task[]> {
+    try {
+      const data = await this.legacyPageRequest(`task-view-${parentId}.json`, `task.view.${parentId}`);
+      return this.collectionValues<Record<string, any>>(data.task?.children).map(child => this.normalizeTask(child));
+    } catch {
+      return [];
+    }
+  }
+
+  async getProjectStories(projectId: number, params?: any): Promise<StoriesResponse> {
+    await this.ensureAuthentication();
+    if (this.activeApiMode === 'rest') return this.restRequest<StoriesResponse>(`/api.php/v1/projects/${projectId}/stories`, params);
+
+    const requestedCount = Number(params?.offset ?? 0) + Number(params?.limit ?? 100);
+    const recPerPage = Math.max(100, Math.min(requestedCount, 1000));
+    // 旧版 PATH_INFO（实测校准）:
+    //   project-story-{项目ID}-{productID}-{branch}-{browseType}-{param}-{orderBy}-{recTotal}-{recPerPage}-{pageID}.json
+    // 模块名是 project 而非 product —— 本实例 product-story-* 只返回 {locate:...}（未命中路由）。
+    // productID 传 0 表示由服务端按项目自动解析（响应里会回填真实产品 ID）。
+    const data = await this.legacyPageRequest(`project-story-${projectId}-0-all-0-0-${recPerPage}-1.json`, 'project.story');
+    const stories = this.flattenStories(data.stories);
+    return { page: 1, total: stories.length, limit: stories.length, stories };
+  }
+
+  /**
+   * 「我的地盘」三个页面（跨项目、按登录账号隐式过滤，无需求传 projectId）：
+   *   /my-task-assignedTo.html -> my-task-assignedTo.json  指派给我的任务
+   *   /my-bug.html             -> my-bug.json              指派给我的 Bug
+   *   /my-story.html           -> my-story.json            指派给我的需求
+   *
+   * 实测约束（禅道旧版接口，逐条验证过）：
+   *  1. 没有等价的 REST v1 端点，只能走 legacy。
+   *  2. **路径参数和查询串都被忽略**：加 `?recPerPage=100&pageID=2` 无效，
+   *     响应恒为 recPerPage=20 / pageID=1 —— 单次最多只能取到 20 条。
+   *  3. 响应的 `recTotal` 恒为 0（服务端不填），真实条数必须看数组长度。
+   *  4. my-task-assignedTo 的 tasks 带 `projectName`，是跨项目场景下唯一的项目名来源。
+   */
+  async getMyTasks(): Promise<TasksResponse> {
+    const data = await this.legacyMyRequest('my-task-assignedTo.json', 'my.task');
     const tasks = this.collectionValues<Record<string, any>>(data.tasks).map(task => this.normalizeTask(task));
     return { page: 1, total: tasks.length, limit: tasks.length, tasks };
+  }
+
+  async getMyBugs(): Promise<BugsResponse> {
+    const data = await this.legacyMyRequest('my-bug.json', 'my.bug');
+    const bugs = this.collectionValues<Record<string, any>>(data.bugs).map(bug => this.normalizeBug(bug));
+    return { page: 1, total: bugs.length, limit: bugs.length, bugs };
+  }
+
+  async getMyStories(): Promise<StoriesResponse> {
+    const data = await this.legacyMyRequest('my-story.json', 'my.story');
+    const stories = this.flattenStories(data.stories);
+    return { page: 1, total: stories.length, limit: stories.length, stories };
+  }
+
+  private async legacyMyRequest(path: string, operation: string): Promise<Record<string, any>> {
+    await this.ensureAuthentication();
+    if (this.activeApiMode === 'rest') {
+      throw new Error(`UNSUPPORTED_API_MODE: ${operation} 只有禅道旧版接口，没有 REST v1 等价端点。请将 ZENTAO_API_MODE 设为 auto 或 legacy。`);
+    }
+    return this.legacyPageRequest(path, operation);
   }
 
   async getBugDetails(bugId: number): Promise<BugDetailResponse> {

@@ -118,7 +118,7 @@ export const GetBugDetailsOutputSchema = z.object({
 
 const TaskListItemOutputSchema = z.object({
   id: z.string(), name: z.string(), status: z.string(), priority: z.number(),
-  project: z.string(), execution: z.string(), assignedTo: z.string().optional(),
+  project: z.string(), projectName: z.string().optional(), execution: z.string(), assignedTo: z.string().optional(),
   assignedDate: z.string().optional(), openedBy: z.string(), openedDate: z.string(),
   deadline: z.string().optional(), estimate: z.number(), consumed: z.number(), left: z.number()
 });
@@ -127,5 +127,19 @@ export const ListTasksOutputSchema = z.object({
   tasks: z.array(TaskListItemOutputSchema), total: z.number(), count: z.number(),
   offset: z.number(), has_more: z.boolean(), next_offset: z.number().optional(),
   filters: z.object({ projectId: z.number().optional(), status: z.string().optional(), assignedTo: z.string().optional(), openedBy: z.string().optional() }).optional(),
+  truncated: z.boolean().optional(), truncation_message: z.string().optional()
+});
+
+const StoryListItemOutputSchema = z.object({
+  id: z.string(), title: z.string(), status: z.string(), stage: z.string(),
+  priority: z.number(), category: z.string(), estimate: z.number(),
+  product: z.string(), openedBy: z.string(), openedDate: z.string(),
+  assignedTo: z.string().optional(), version: z.string()
+});
+
+export const ListStoriesOutputSchema = z.object({
+  stories: z.array(StoryListItemOutputSchema), total: z.number(), count: z.number(),
+  offset: z.number(), has_more: z.boolean(), next_offset: z.number().optional(),
+  filters: z.object({ projectId: z.number().optional(), status: z.string().optional(), stage: z.string().optional(), assignedTo: z.string().optional(), openedBy: z.string().optional() }).optional(),
   truncated: z.boolean().optional(), truncation_message: z.string().optional()
 });

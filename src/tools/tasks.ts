@@ -27,15 +27,22 @@ export function registerTaskTools(server: McpServer, zentaoClient: ZentaoClient,
       const total = tasks.length;
       const page = tasks.slice(params.offset, params.offset + params.limit);
       const output: PaginatedTasksOutput = {
-        tasks: page.map((task: Task) => ({ id: task.id, name: task.name, status: task.status, priority: Number.parseInt(task.pri, 10) || 0, project: task.project, execution: task.execution, assignedTo: task.assignedTo || undefined, assignedDate: task.assignedDate || undefined, openedBy: task.openedBy, openedDate: task.openedDate, deadline: task.deadline || undefined, estimate: numberValue(task.estimate), consumed: numberValue(task.consumed), left: numberValue(task.left) })),
+        tasks: page.map((task: Task) => ({ id: task.id, name: task.name, status: task.status, priority: Number.parseInt(task.pri, 10) || 0, project: task.project, projectName: task.projectName || undefined, execution: task.execution, assignedTo: task.assignedTo || undefined, assignedDate: task.assignedDate || undefined, openedBy: task.openedBy, openedDate: task.openedDate, deadline: task.deadline || undefined, estimate: numberValue(task.estimate), consumed: numberValue(task.consumed), left: numberValue(task.left) })),
         total, count: page.length, offset: params.offset, has_more: params.offset + page.length < total,
         filters: { projectId, status: params.status, assignedTo: params.assignedTo, openedBy: params.openedBy }
       };
       if (output.has_more) output.next_offset = params.offset + page.length;
+      // 安全网：服务端自报 recTotal 与实际取到的条数不等，说明仍有缺口，必须让调用方看见，
+      // 而不是像以前那样静默少数（正是这个静默导致过"少报 6 条任务"的误答）。
+      const serverRecTotal = data.serverRecTotal;
+      if (typeof serverRecTotal === 'number' && serverRecTotal > total) {
+        output.truncated = true;
+        output.truncation_message = `禅道自报 ${serverRecTotal} 条任务，实际只取到 ${total} 条，结果可能不完整。`;
+      }
       const textContent = params.response_format === 'json' ? JSON.stringify(output, null, 2) : [
         '# Task List', '', `Found ${total} tasks (showing ${page.length})`, '',
         ...page.flatMap((task: Task) => [`## Task #${task.id}: ${task.name}`, `- **Status**: ${task.status}`, `- **Priority**: ${task.pri}`, `- **Assigned To**: ${task.assignedTo || 'Unassigned'}`, `- **Opened By**: ${task.openedBy} on ${task.openedDate}`, `- **Hours**: estimate ${task.estimate}, consumed ${task.consumed}, left ${task.left}`, task.deadline ? `- **Deadline**: ${task.deadline}` : '', ''])
-      ].join('\n');
+      ].join('\n') + (output.truncated ? `\n\n> ⚠️ ${output.truncation_message}` : '');
       return { content: [{ type: 'text', text: textContent }], structuredContent: output as any };
     } catch (error) {
       return { isError: true, content: [{ type: 'text', text: `Error: ${error instanceof Error ? error.message : String(error)}` }] };

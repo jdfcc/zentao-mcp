@@ -176,6 +176,26 @@ Parameters: {
 }
 ```
 
+**6. 查询项目需求：**
+```
+Tool: zentao_list_stories
+Parameters: {
+  "projectId": 1,
+  "status": "active",
+  "stage": "developing",
+  "limit": 50
+}
+```
+
+**7. 查询指派给我的任务（跨项目，无需 projectId）：**
+```
+Tool: zentao_list_my_tasks
+Parameters: {
+  "status": "doing",
+  "limit": 20
+}
+```
+
 ## 配置到 Codex
 
 该服务器使用标准 MCP stdio 传输，Codex CLI 和 Codex IDE 扩展共享同一份 `~/.codex/config.toml` 配置。
@@ -241,6 +261,8 @@ args = ["D:/path/to/zentao-mcp/dist/index.js"]
 
 ```md
 当需要查询禅道项目或 Bug 时，优先使用 zentao MCP 工具。未知项目 ID 时，先调用 zentao_list_projects。
+问「我的」任务/Bug/需求（指派给当前账号）时，直接用 zentao_list_my_tasks / zentao_list_my_bugs / zentao_list_my_stories，
+它们跨项目、不需要 projectId；不要逐个项目去查。
 ```
 
 ### Codex 兼容性自测
@@ -359,6 +381,14 @@ npm run test:live
 
 查询项目任务列表。
 
+> **关于完整性**：禅道旧版的 `project-task` 接口只返回**顶层任务**，子任务不在其中（但会算进它自报的 `recTotal`）。
+> 本实现会为 `parent=-1` 的父任务补拉 `task-view` 的 `children`，把子任务合并回来，并按 id 倒序输出
+> （服务端实际会忽略 `orderBy`）。若合并后仍少于禅道自报的条数，结果里会带 `truncated` / `truncation_message`——
+> **看到该标记即表示结果不完整**。
+>
+> 另注：任务关闭时禅道会把 `assignedTo` 覆写成字面量 `closed`，因此**按 `assignedTo` 过滤查不到已关闭的历史归属**。
+> 要查"指派给某人的任务"，请用 `zentao_list_my_tasks`。
+
 **参数：**
 - `projectId`: 项目 ID（如未指定则使用默认项目）
 - `status`: 任务状态（all/wait/doing/done/closed/cancel）
@@ -368,6 +398,48 @@ npm run test:live
 - `limit`、`offset`: 分页参数
 - `response_format`: 输出格式（markdown/json，默认: markdown）
 
+### `zentao_list_stories`
+
+查询项目需求（Story）列表。
+
+**参数：**
+- `projectId`: 项目 ID（如未指定则使用默认项目）
+- `status`: 需求状态（all/draft/active/closed/changing/reviewing）
+- `stage`: 需求阶段（all/wait/planned/projected/developing/testing/verified/released/closed）
+- `assignedTo`: 按指派用户过滤
+- `openedBy`: 按创建者过滤
+- `keyword`: 按标题关键词过滤（不区分大小写）
+- `startDate`、`endDate`: 创建日期范围（YYYY-MM-DD）
+- `limit`、`offset`: 分页参数
+- `response_format`: 输出格式（markdown/json，默认: markdown）
+
+> 注：`status` / `stage` 的取值由 Zod 校验，但**筛选在本地完成**——传入合法但不存在的值不会报错，而是静默返回 0 条。
+
+## 「我的地盘」工具（跨项目，无需 projectId）
+
+这三个工具对应禅道的「我的地盘」页面，**按登录账号隐式过滤、跨项目**，因此都没有 `projectId` 参数。
+
+### `zentao_list_my_tasks`
+
+指派给我的任务（对应 `/my-task-assignedTo.html`）。
+
+**参数：** `status`（all/wait/doing/done/closed/cancel）、`keyword`、`limit`、`offset`、`response_format`
+
+### `zentao_list_my_bugs`
+
+指派给我的 Bug（对应 `/my-bug.html`）。
+
+**参数：** `status`（all/active/resolved/closed）、`severity`、`keyword`、`limit`、`offset`、`response_format`
+
+### `zentao_list_my_stories`
+
+指派给我的需求（对应 `/my-story.html`）。
+
+**参数：** `status`、`stage`、`keyword`、`limit`、`offset`、`response_format`
+
+> ⚠️ **单次最多返回 20 条，且服务端忽略分页参数**（实测 `?recPerPage=100&pageID=2` 无效，响应恒为 `recPerPage=20 / pageID=1`）。
+> 返回正好 20 条时结果会带 `truncated` 标记。响应中的 `recTotal` 恒为 0，不可信——真实条数看数组长度。
+
 ## API 端点映射
 
 | 工具 | API 端点 | 说明 |
@@ -376,6 +448,10 @@ npm run test:live
 | zentao_list_bugs | `GET /api.php/v1/projects/:projectId/bugs` | 获取项目 Bug 列表 |
 | zentao_get_bug_details | `GET /api.php/v1/bugs/:bugId` | 获取 Bug 详情 |
 | zentao_list_tasks | `GET /api.php/v1/projects/:projectId/tasks` | 获取项目任务 |
+| zentao_list_stories | `GET /api.php/v1/projects/:projectId/stories` | 获取项目需求 |
+| zentao_list_my_tasks | 仅旧版 `my-task-assignedTo.json` | 指派给我的任务（跨项目） |
+| zentao_list_my_bugs | 仅旧版 `my-bug.json` | 指派给我的 Bug（跨项目） |
+| zentao_list_my_stories | 仅旧版 `my-story.json` | 指派给我的需求（跨项目） |
 | 认证 | `POST /api.php/v1/tokens` | 获取访问令牌 |
 
 ## 错误处理

@@ -30,7 +30,11 @@ try {
   const expectedTools = [
     'zentao_get_bug_details',
     'zentao_list_bugs',
+    'zentao_list_my_bugs',
+    'zentao_list_my_stories',
+    'zentao_list_my_tasks',
     'zentao_list_projects',
+    'zentao_list_stories',
     'zentao_list_tasks'
   ];
 

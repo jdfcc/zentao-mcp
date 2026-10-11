@@ -159,10 +159,14 @@ export interface Task {
   closedBy: string;
   closedDate: string;
   story: string;
+  /** 「我的地盘」跨项目返回时带项目名；按项目查询时通常为空 */
+  projectName?: string;
 }
 
 export interface TasksResponse extends ZentaoPagedResponse {
   tasks: Task[];
+  /** 服务端自报的总数。与 tasks.length 不等时说明仍有缺口（正常应相等）。 */
+  serverRecTotal?: number;
 }
 
 export interface TaskListItem {
@@ -171,6 +175,7 @@ export interface TaskListItem {
   status: string;
   priority: number;
   project: string;
+  projectName?: string;
   execution: string;
   assignedTo?: string;
   assignedDate?: string;
@@ -231,6 +236,71 @@ export interface PaginatedBugsOutput {
     severity?: number;
     priority?: number;
   };
+  truncated?: boolean;
+  truncation_message?: string;
+}
+
+// ── 需求（Story）──
+
+export interface Story {
+  id: string;
+  product: string;
+  branch: string;
+  module: string;
+  plan: string;
+  source: string;
+  title: string;
+  keywords: string;
+  pri: string;
+  estimate: string;
+  status: string;
+  stage: string;
+  category: string;
+  version: string;
+  openedBy: string;
+  openedDate: string;
+  assignedTo: string;
+  assignedDate: string;
+  reviewedBy: string;
+  reviewedDate: string;
+  closedBy: string;
+  closedDate: string;
+  closedReason: string;
+  lastEditedBy: string;
+  lastEditedDate: string;
+  parent: string;
+  childStories: string;
+  linkStories: string;
+  duplicateStory: string;
+}
+
+export interface StoriesResponse extends ZentaoPagedResponse {
+  stories: Story[];
+}
+
+export interface StoryListItem {
+  id: string;
+  title: string;
+  status: string;
+  stage: string;
+  priority: number;
+  category: string;
+  estimate: number;
+  product: string;
+  openedBy: string;
+  openedDate: string;
+  assignedTo?: string;
+  version: string;
+}
+
+export interface PaginatedStoriesOutput {
+  stories: StoryListItem[];
+  total: number;
+  count: number;
+  offset: number;
+  has_more: boolean;
+  next_offset?: number;
+  filters?: { projectId?: number; status?: string; stage?: string; assignedTo?: string; openedBy?: string };
   truncated?: boolean;
   truncation_message?: string;
 }

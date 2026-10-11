@@ -44,6 +44,10 @@ if (process.env.ZENTAO_DEFAULT_PROJECT) {
   assert.ok(Array.isArray(tasks.tasks));
   console.log(`Live project task query passed (${tasks.tasks.length} tasks returned for the smoke test).`);
 
+  const stories = await client.getProjectStories(projectID, { limit: 5, offset: 0 });
+  assert.ok(Array.isArray(stories.stories));
+  console.log(`Live project story query passed (${stories.stories.length} stories returned for the smoke test).`);
+
   const firstBug = bugs.bugs[0];
   if (firstBug) {
     const detail = await client.getBugDetails(Number(firstBug.id));
@@ -53,3 +57,16 @@ if (process.env.ZENTAO_DEFAULT_PROJECT) {
     console.log('Bug detail query skipped because the selected project returned no bugs.');
   }
 }
+
+// 「我的地盘」跨项目接口，与 ZENTAO_DEFAULT_PROJECT 无关
+const myTasks = await client.getMyTasks();
+assert.ok(Array.isArray(myTasks.tasks));
+console.log(`Live my-task query passed (${myTasks.tasks.length} tasks assigned to the current account).`);
+
+const myBugs = await client.getMyBugs();
+assert.ok(Array.isArray(myBugs.bugs));
+console.log(`Live my-bug query passed (${myBugs.bugs.length} bugs assigned to the current account).`);
+
+const myStories = await client.getMyStories();
+assert.ok(Array.isArray(myStories.stories));
+console.log(`Live my-story query passed (${myStories.stories.length} stories assigned to the current account).`);
