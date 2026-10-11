@@ -50,6 +50,38 @@ function Write-Ok    { param($m) Write-Host "  [OK] $m" -ForegroundColor Green }
 function Write-Warn2 { param($m) Write-Host "  [!] $m" -ForegroundColor Yellow }
 function Write-Head  { param($m) Write-Host "`n$m" -ForegroundColor White }
 
+# 写 .env 时给「含特殊字符的值」加引号。不加会踩两个坑：
+#   1) 值里有 # → dotenv 视为行内注释，密码被从 # 处截断（含 # 的密码极常见）
+#   2) 值首尾有空格 → 被 trim 掉
+function Format-EnvValue {
+    param([string]$Value)
+    if ([string]::IsNullOrEmpty($Value)) { return '' }
+    if ($Value -match '[#''"\s]') {
+        $v = $Value.Replace('\', '\\').Replace('"', '\"')
+        return '"' + $v + '"'
+    }
+    return $Value
+}
+
+# 用拼接而非插值 here-string：密码里若含 $ 会被 PowerShell 当变量展开。
+# 注意不要写成数组字面量里的 `'K=' + (f $x),` —— PowerShell 中逗号优先级高于 +，
+# 那会被解析成 `'K=' + ((f $x),)`，把键和值拆成两个数组元素、写进 .env 变成两行。
+function New-EnvContent {
+    param([string]$Url, [string]$User, [string]$Pass, [string]$Proj, [string]$Mode)
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('# Zentao Configuration')
+    $lines.Add('ZENTAO_URL=' + (Format-EnvValue $Url))
+    $lines.Add('ZENTAO_USERNAME=' + (Format-EnvValue $User))
+    $lines.Add('ZENTAO_PASSWORD=' + (Format-EnvValue $Pass))
+    $lines.Add('ZENTAO_DEFAULT_PROJECT=' + (Format-EnvValue $Proj))
+    $lines.Add('ZENTAO_API_MODE=' + (Format-EnvValue $Mode))
+    $lines.Add('')
+    $lines.Add('# Optional Configuration')
+    $lines.Add('TTL_SECONDS=300')
+    $lines.Add('LOG_LEVEL=error')
+    return ($lines -join "`n")
+}
+
 # ─────────────────────────── 解析安装目录 ───────────────────────────
 if (-not $InstallDir) {
     $home_ = if ($env:USERPROFILE) { $env:USERPROFILE } else { $HOME }
@@ -176,36 +208,60 @@ if ($Configure) {
 # ─────────────────────── 配置向导 ───────────────────────
 Write-Head "[5/6] 禅道连接配置"
 
-$needConfig = (-not (Test-Path $envFile))
+# -Configure 必须强制走配置流程：它的典型用途正是「.env 已存在但凭据过期了」，
+# 若仍以「.env 是否存在」判断，重跑配置会静默什么都不做。
+$needConfig = [bool]$Configure -or (-not (Test-Path $envFile))
 $wroteConfig = $false
-if ($needConfig -and ($ZentaoUrl -and $Username -and $Password)) {
+
+# 读既有配置作为向导默认值，重配时不用重新敲一遍
+$existing = @{}
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        if ($_ -match '^\s*([A-Z_]+)\s*=\s*(.*)$') { $existing[$Matches[1]] = $Matches[2].Trim() }
+    }
+}
+
+if ($needConfig -and $ZentaoUrl -and $Username -and $Password) {
     # 全部由参数/环境变量提供 → 非交互写入
     $needConfig = $false
     $wroteConfig = $true
     if (-not $ApiMode) { $ApiMode = 'auto' }
-    $envContent = @"
-# Zentao Configuration
-ZENTAO_URL=$ZentaoUrl
-ZENTAO_USERNAME=$Username
-ZENTAO_PASSWORD=$Password
-ZENTAO_DEFAULT_PROJECT=$DefaultProject
-ZENTAO_API_MODE=$ApiMode
-
-# Optional Configuration
-TTL_SECONDS=300
-LOG_LEVEL=error
-"@
-    Set-Content -Path $envFile -Value $envContent -Encoding utf8NoBOM
+    Set-Content -Path $envFile -Value (New-EnvContent $ZentaoUrl $Username $Password $DefaultProject $ApiMode) -Encoding utf8NoBOM
     Write-Ok "已按提供的参数写入配置（非交互）"
+}
+
+function Read-WithDefault {
+    param([string]$Prompt, [string]$Default)
+    if ($Default) {
+        $v = Read-Host "  $Prompt [$Default]"
+        if (-not $v) { return $Default }
+        return $v
+    }
+    return (Read-Host "  $Prompt")
+}
+
+function Read-Secret {
+    param([string]$Prompt, [string]$Default)
+    $hint = if ($Default) { "（直接回车沿用原密码）" } else { "" }
+    $sec = Read-Host "  $Prompt$hint" -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
+    try { $v = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    if (-not $v -and $Default) { return $Default }
+    return $v
 }
 
 if ($needConfig) {
     Write-Host ""
-    Write-Host "  首次安装需要填写禅道连接信息。" -ForegroundColor White
-    Write-Host "  （直接回车可沿用方括号里的默认值）" -ForegroundColor DarkGray
+    if ($existing.Count -gt 0) {
+        Write-Host "  重新配置：直接回车即沿用方括号里的现值。" -ForegroundColor White
+    } else {
+        Write-Host "  首次安装需要填写禅道连接信息。" -ForegroundColor White
+        Write-Host "  （直接回车可沿用方括号里的默认值）" -ForegroundColor DarkGray
+    }
 
     if (-not $ZentaoUrl) {
-        $ZentaoUrl = Read-Host "  禅道地址 (如 https://zentao.example.com)"
+        $ZentaoUrl = Read-WithDefault "禅道地址 (如 https://zentao.example.com)" $existing['ZENTAO_URL']
         while (-not $ZentaoUrl) {
             Write-Warn2 "禅道地址不能为空"
             $ZentaoUrl = Read-Host "  禅道地址"
@@ -213,42 +269,28 @@ if ($needConfig) {
     }
     $ZentaoUrl = $ZentaoUrl.TrimEnd('/')
 
-    if (-not $Username) { $Username = Read-Host "  账号" }
-    while (-not $Username) {
-        Write-Warn2 "账号不能为空"
-        $Username = Read-Host "  账号"
+    if (-not $Username) {
+        $Username = Read-WithDefault "账号" $existing['ZENTAO_USERNAME']
+        while (-not $Username) {
+            Write-Warn2 "账号不能为空"
+            $Username = Read-Host "  账号"
+        }
     }
 
     if (-not $Password) {
-        $sec = Read-Host "  密码" -AsSecureString
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-        try { $Password = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr) }
-        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
-    }
-    while (-not $Password) {
-        Write-Warn2 "密码不能为空"
-        $sec = Read-Host "  密码" -AsSecureString
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
-        try { $Password = [Runtime.InteropServices.Marshal]::PtrToStringAuto($bstr) }
-        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        $Password = Read-Secret "密码" $existing['ZENTAO_PASSWORD']
+        while (-not $Password) {
+            Write-Warn2 "密码不能为空"
+            $Password = Read-Secret "密码" $null
+        }
     }
 
-    if (-not $DefaultProject) { $DefaultProject = Read-Host "  默认项目 ID (可留空)" }
-    if (-not $ApiMode)        { $ApiMode = 'auto' }
+    if (-not $DefaultProject) {
+        $DefaultProject = Read-WithDefault "默认项目 ID (可留空)" $existing['ZENTAO_DEFAULT_PROJECT']
+    }
+    if (-not $ApiMode) { $ApiMode = if ($existing['ZENTAO_API_MODE']) { $existing['ZENTAO_API_MODE'] } else { 'auto' } }
 
-    $envContent = @"
-# Zentao Configuration
-ZENTAO_URL=$ZentaoUrl
-ZENTAO_USERNAME=$Username
-ZENTAO_PASSWORD=$Password
-ZENTAO_DEFAULT_PROJECT=$DefaultProject
-ZENTAO_API_MODE=$ApiMode
-
-# Optional Configuration
-TTL_SECONDS=300
-LOG_LEVEL=error
-"@
-    Set-Content -Path $envFile -Value $envContent -Encoding utf8NoBOM
+    Set-Content -Path $envFile -Value (New-EnvContent $ZentaoUrl $Username $Password $DefaultProject $ApiMode) -Encoding utf8NoBOM
     $wroteConfig = $true
     Write-Ok "配置已写入 $envFile"
     Write-Warn2 "该文件以明文保存密码，请勿提交到 git（安装目录在用户目录下，已隔离于任何仓库）"
@@ -269,28 +311,80 @@ if (-not $Configure) {
 # ─────────────────────── 自检 ───────────────────────
 Write-Head "[6/6] 自检"
 $cli = Join-Path $InstallDir 'mcp-cli.mjs'
-Write-Step "启动 MCP server 并拉取工具列表（首次约 3 秒）..."
 
+# ── 第一层：协议层。能否把 MCP server 拉起来并列出工具。
+#    注意 tools/list 走的是本地已注册的工具表，**完全不访问禅道、不验证凭据**，
+#    所以它成功只能证明"装好了"，不能证明"连得上"。凭据必须单独验（见下）。
+Write-Step "启动 MCP server 并拉取工具列表（首次约 3 秒）..."
 $out = & node $cli list 2>&1 | Out-String
 # 只认「有没有真的列出 zentao 工具」，不要用关键词匹配——工具描述里本身就可能出现"错误"等字样
-$hasTools = $out -match 'zentao_[a-z_]+'
-if ($LASTEXITCODE -ne 0 -or -not $hasTools) {
+if ($LASTEXITCODE -ne 0 -or $out -notmatch 'zentao_[a-z_]+') {
     Write-Host $out -ForegroundColor DarkGray
     throw @"
-自检未通过：无法从禅道取到工具列表。
+自检未通过：MCP server 未能返回工具列表。
+
+常见原因：
+  * node 版本过低
+  * 安装包不完整（缺少 dist/ 或 node_modules/）
+
+请重装：
+  & ([scriptblock]::Create((irm https://raw.githubusercontent.com/$Repo/main/install.ps1))) -Force
+"@
+}
+$toolCount = ([regex]::Matches($out, 'zentao_[a-z_]+') | ForEach-Object { $_.Value } | Sort-Object -Unique).Count
+Write-Ok "MCP server 正常，已注册工具 $toolCount 个"
+
+# ── 第二层：凭据层。真的打一次禅道接口，确认账号密码可用。
+#
+# 关键：dotenv 默认**不覆盖**已存在的进程环境变量（12-factor 约定，src/index.ts 里
+# 也是 override:false）。所以机器上若残留 ZENTAO_* 环境变量，会盖掉刚写入的 .env，
+# 导致「自检结果」和「用户实际使用时」不一致。这里先摘掉这些变量，确保验证的就是 .env。
+$overrideKeys = @('ZENTAO_URL','ZENTAO_USERNAME','ZENTAO_PASSWORD','ZENTAO_DEFAULT_PROJECT','ZENTAO_API_MODE')
+$conflicts = @($overrideKeys | Where-Object {
+    [Environment]::GetEnvironmentVariable($_, 'Process') -or [Environment]::GetEnvironmentVariable($_, 'User')
+})
+if ($conflicts.Count -gt 0) {
+    Write-Warn2 "检测到环境变量 $($conflicts -join ', ')"
+    Write-Warn2 "它们优先级高于 .env、会覆盖安装配置；若日后认证异常，请先清除这些变量"
+}
+
+$savedEnv = @{}
+foreach ($k in $overrideKeys) {
+    $savedEnv[$k] = [Environment]::GetEnvironmentVariable($k, 'Process')
+    if ($savedEnv[$k]) { Remove-Item "env:$k" -ErrorAction SilentlyContinue }
+}
+
+Write-Step "验证禅道凭据（实际调用一次接口）..."
+$ok = $false
+$lastOut = ''
+try {
+    foreach ($attempt in 1..2) {
+        $lastOut = & node $cli call zentao_list_projects '{"limit":1}' --content-only 2>&1 | Out-String
+        if ($lastOut -notmatch 'AUTH_ERROR|isError|Error:') { $ok = $true; break }
+        # 禅道旧版登录偶发失败，重试一次避免误报
+        if ($attempt -lt 2) { Start-Sleep -Seconds 2 }
+    }
+} finally {
+    foreach ($k in $overrideKeys) {
+        if ($savedEnv[$k]) { Set-Item -Path "env:$k" -Value $savedEnv[$k] }
+    }
+}
+
+if (-not $ok) {
+    Write-Host $lastOut -ForegroundColor DarkGray
+    throw @"
+自检未通过：MCP server 已就绪，但**无法通过禅道认证**。
 
 常见原因：
   * 禅道地址 / 账号 / 密码不正确
-  * 该账号无权访问（或密码已改）
-  * 网络不通 / 证书问题
+  * 密码已过期或被修改
+  * 网络不通（尤其内网地址需要 VPN）
 
 请重跑配置向导后重试：
   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/$Repo/main/install.ps1))) -Configure
 "@
 }
-
-$toolCount = ([regex]::Matches($out, 'zentao_[a-z_]+') | ForEach-Object { $_.Value } | Sort-Object -Unique).Count
-Write-Ok "连接成功，可用工具 $toolCount 个"
+Write-Ok "禅道凭据验证通过（已验证 .env 中的配置确实可用）"
 
 Write-Host ""
 Write-Host "  安装完成！" -ForegroundColor Green
