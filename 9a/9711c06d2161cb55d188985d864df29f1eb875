@@ -1,0 +1,12 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.18",
+  "base_commit_sha": "9a9711c06d2161cb55d188985d864df29f1eb875",
+  "prompts": {},
+  "humans": {
+    "h_dc9c6a33b8b680": {
+      "author": "jdfcc"
+    }
+  }
+}
