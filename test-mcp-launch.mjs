@@ -59,19 +59,29 @@ function probe(CWD) {
     setTimeout(() => {
       timers.forEach(clearTimeout);
       let toolCount = 0, callLine = null, callError = null;
+      // stdout 是 MCP 的 JSON-RPC 通道，除协议帧外不允许有任何内容。
+      // dotenv v17 默认会往这里打 "◇ injected env (N) from .env" 之类的提示，
+      // 宽容的客户端会跳过、严格的会直接连接失败——这里一律判为失败。
+      const junk = [];
       for (const l of buf.split('\n')) {
-        let j; try { j = JSON.parse(l); } catch { continue; }
+        if (!l.trim()) continue;
+        let j;
+        try { j = JSON.parse(l); } catch { junk.push(l.trim()); continue; }
         if (j.id === 2) toolCount = j.result?.tools?.length || 0;
         if (j.id === 3) {
           if (j.result?.isError) callError = (j.result.content?.[0]?.text || '').slice(0, 160);
           else callLine = (j.result?.content?.[0]?.text || '').split('\n').filter(Boolean)[0];
         }
       }
-      const ok = toolCount > 0 && callLine !== null;
+      const ok = toolCount > 0 && callLine !== null && junk.length === 0;
       console.log(`\n${ok ? '  ✓' : '  ✗'} cwd = ${CWD}`);
       console.log(`      tools/list -> ${toolCount} 个工具`);
       if (callLine) console.log(`      tools/call -> ${callLine}`);
       if (callError) console.log(`      tools/call 失败: ${callError}`);
+      if (junk.length) {
+        console.log(`      stdout 混入 ${junk.length} 行非 JSON 内容（会破坏 MCP 协议）：`);
+        junk.slice(0, 3).forEach(l => console.log(`        ${l.slice(0, 120)}`));
+      }
       if (!ok && err.trim()) console.log('      server stderr:\n        ' + err.trim().split('\n').slice(0, 6).join('\n        '));
       child.kill();
       resolve(ok);

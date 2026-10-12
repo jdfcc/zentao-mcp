@@ -15,10 +15,16 @@ import { DEFAULT_TTL_SECONDS, DEFAULT_LIMIT } from './constants.js';
 
 // Support both npm usage (the caller's working directory) and a local Codex
 // registration that starts dist/index.js from an unrelated project directory.
-loadEnv();
+//
+// quiet: true 不可省略——dotenv v17 起默认会打印
+//   ◇ injected env (N) from .env // tip: ...
+// 而它走的是 **stdout**，也就是 MCP 的 JSON-RPC 通道。多了这两行非 JSON 内容，
+// 严格的客户端会解析失败（本项目自带的 mcp-cli.mjs 会跳过非 JSON 行，所以一直没暴露）。
+loadEnv({ quiet: true });
 loadEnv({
   path: resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env'),
-  override: false
+  override: false,
+  quiet: true
 });
 
 const REQUIRED_ENV_VARS = ['ZENTAO_URL', 'ZENTAO_USERNAME', 'ZENTAO_PASSWORD'];
