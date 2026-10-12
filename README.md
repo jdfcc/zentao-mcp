@@ -239,7 +239,38 @@ Parameters: {
 
 该服务器使用标准 MCP stdio 传输，Codex CLI 和 Codex IDE 扩展共享同一份 `~/.codex/config.toml` 配置。
 
-### 方式 1：使用 Codex CLI 注册
+> **先选装法**：方式 1 指向本地已构建的代码，**现在就能用**；方式 2 走 npx，
+> **要求 `@jdfcc/zentao-mcp` 已发布到 npm**——没发布的话 npx 会直接 404。
+
+### 方式 1：指向本地构建（推荐，不依赖 npm 发布）
+
+```powershell
+codex mcp add zentao -- node D:\zendao\zentao-mcp\dist\index.js
+```
+
+**不需要传 `--env`。** 只要 `.env` 位于 `dist/` 的上一级（即仓库根目录），server 启动时会自己读它。
+凭据放 `.env` 比写进 `config.toml` 更稳妥——`config.toml` 常被同步或备份，而 `.env` 已在 `.gitignore` 里；
+安装脚本写出的 `.env` 也是同样的布局，所以也可以直接指向 skill 安装目录：
+
+```powershell
+codex mcp add zentao -- node "$env:USERPROFILE\.agents\skills\zentao\dist\index.js"
+```
+
+等价的手工 TOML（`~/.codex/config.toml`）：
+
+```toml
+[mcp_servers.zentao]
+command = "node"
+args = ['D:\zendao\zentao-mcp\dist\index.js']
+enabled = true
+```
+
+> **Windows 路径务必用单引号**。TOML 的单引号是字面量字符串、不解析转义；
+> 写成双引号时 `\z`、`\d` 之类会被当转义序列而报错（或必须写成 `\\`）。
+> 另外 `args` 是数组，换行书写时别忘了方括号要成对——只留下 `['...']` 一行会变成
+> 一个孤立的表头，配置能解析但内容不是你以为的那样。
+
+### 方式 2：使用 Codex CLI 注册（npx）
 
 ```bash
 codex mcp add zentao \
@@ -262,7 +293,7 @@ codex mcp add zentao --env ZENTAO_URL=https://your-zentao-domain.com --env ZENTA
 codex mcp list
 ```
 
-### 方式 2：直接编辑 Codex TOML 配置
+### 方式 3：直接编辑 Codex TOML 配置
 
 将项目中的 `codex.example.toml` 复制到 `~/.codex/config.toml`，或合并下列内容：
 
@@ -285,6 +316,23 @@ LOG_LEVEL = "info"
 ```
 
 Windows 上如果 Codex 找不到 `npx`，将 `command` 改为 `npx.cmd`。修改配置后重新启动 Codex 会话以重新加载工具。
+
+### 验证注册是否真的生效
+
+```bash
+npm run test:mcp
+```
+
+MCP 宿主（Codex / Claude Desktop）只声明 `command` 和 `args`，**不会设置工作目录**——
+子进程继承宿主的当前目录。而 `.env` 是靠 `dist/../.env` 这条相对路径读到的，
+所以这段逻辑一旦被改坏，症状是「在仓库里能用、一进别的项目就报缺环境变量」。
+该脚本从若干个互不相关的目录各拉起一次 server，把这个失败模式钉死。
+
+排查已注册的 server 是否正常，也可以直接看 Codex 侧的状态：
+
+```bash
+codex mcp list      # Status 应为 enabled
+```
 
 ### 从本地源码运行
 
