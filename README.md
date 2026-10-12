@@ -1,6 +1,6 @@
 # Zentao MCP Server
 
-[![npm version](https://badge.fury.io/js/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
+[![npm version](https://img.shields.io/npm/v/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
 [![Node.js Version](https://img.shields.io/node/v/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/jdfcc/zentao-mcp/workflows/CI/badge.svg)](https://github.com/jdfcc/zentao-mcp/actions)
@@ -35,7 +35,7 @@
 ## npm 包信息
 
 - **包名**: `@jdfcc/zentao-mcp`
-- **最新版本**: [![npm version](https://badge.fury.io/js/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
+- **最新版本**: [![npm version](https://img.shields.io/npm/v/@jdfcc/zentao-mcp.svg)](https://www.npmjs.com/package/@jdfcc/zentao-mcp)
 - **许可证**: MIT
 - **Node.js 要求**: >= 18
 - **仓库**: https://github.com/jdfcc/zentao-mcp
