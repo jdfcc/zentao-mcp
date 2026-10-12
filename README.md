@@ -721,6 +721,55 @@ npm run build
 npm run clean
 ```
 
+## 发布新版本（维护者）
+
+发版**由 git tag 驱动**，不需要手动 `npm publish`：
+
+```powershell
+npm run release 1.3.1        # 改版本号 -> 提交 -> 打 tag -> 推送
+npm run release 1.3.1 -DryRun  # 只做检查，不改动任何东西
+```
+
+推送 `v*.*.*` 格式的 tag 会触发 `.github/workflows/release.yml`，CI 依次执行：
+
+```
+跑测试 → 构建 → 打包 skill → 创建 GitHub Release（附 zip）→ 发布到 npm
+```
+
+几分钟后两处同时就绪：
+
+```powershell
+npm view @jdfcc/zentao-mcp --registry https://registry.npmjs.org/
+Invoke-WebRequest "https://github.com/jdfcc/zentao-mcp/releases/latest/download/zentao-skill.zip" -Method Head
+```
+
+### ⚠️ 发出去的是 tag 所指的 commit，不是 main 的最新提交
+
+这是本流程最容易踩的坑：**tag 打在落后的 commit 上时，CI 会老老实实把旧代码发出去，而且全程绿灯**——看起来一切正常，实际发的是旧版本。本仓库就发生过一次：`v1.3.0` 落后 main 三个提交，导致 Release 上的 `zentao-skill.zip` 缺少当时的修复，而 npm 上那份是手工发的、反而是新的。
+
+`npm run release` 每次都要求「工作区干净 + 本地与 origin/main 同步」，然后从 HEAD 打 tag，就是为了杜绝这种情况。
+
+CI 里还有一道守卫：**tag 版本号必须与 `package.json` 的 `version` 一致**，不一致直接失败（版本已发布过则只告警，因为「重跑失败的任务」是合法场景）。
+
+### 前置配置（每台机器一次）
+
+```powershell
+# 发布必须走官方源；本机全局 registry 可能指向 npmmirror（只读镜像，发不了）
+npm config set @jdfcc:registry https://registry.npmjs.org/
+npm login --registry https://registry.npmjs.org/
+```
+
+CI 需要在仓库 Settings → Secrets → Actions 配置 `NPM_TOKEN`：
+
+- 在 https://www.npmjs.com/settings/~/tokens 创建
+- 类型选 **Automation**（或 Granular 并勾选 bypass 2FA）——普通 token 在 CI 里会卡在 2FA
+
+没配 `NPM_TOKEN` 时 `Publish to npm` 会自动跳过，Release 仍会正常创建——**skill 安装包是主分发渠道，不该被 npm 拖累**。
+
+### 重跑失败的任务
+
+在 Actions 页面点 **"Re-run failed jobs"** 即可（会在同一个 tag 上重跑）。不要为了重试去删 tag 重推——那样容易把 tag 落到新的 commit 上。
+
 ## 故障排除
 
 ### 服务器启动失败

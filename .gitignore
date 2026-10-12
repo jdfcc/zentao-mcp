@@ -13,3 +13,6 @@ CLAUDE.md
 dist-release/
 *.tgz
 .terminals/
+# 项目级 .npmrc 里可能被写入 _authToken（npm config set 不带 -g 时就会落到这里）。
+# CI 不需要它：setup-node 的 registry-url 会自己写一份。
+.npmrc

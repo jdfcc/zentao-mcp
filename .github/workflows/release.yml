@@ -22,6 +22,37 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 发版由 tag 驱动，而 tag 是打在某个 commit 上的——不是 main 的最新提交。
+      # 这条守卫拦的是「tag 落后于 main / 版本号没同步改」这类最容易犯、又最难自查的错误。
+      #
+      # 版本号不一致 -> 硬失败：这永远是错的，发布的是 tag 所指 commit 的内容。
+      # 版本已发布过 -> 只警告：属于合法重试场景（比如 npm 发成功了、建 Release 那步挂了，
+      #                 你在 Actions 页面点 "Re-run failed jobs" 会再走一遍完整流程）。
+      #                 真正「忘了升版本号」的情况由上面的 tag/版本一致性检查先拦掉。
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
+          NAME=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).name")
+
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG 与 package.json 的 version $PKG 不一致。"
+            echo "发布的是 tag 所指 commit 的内容。请先把版本号改成 $TAG 并提交，再重新打 tag："
+            echo "  npm version $TAG --no-git-tag-version && git commit -am \"chore: release v$TAG\""
+            echo "  git tag v$TAG && git push origin main v$TAG"
+            exit 1
+          fi
+          echo "[OK] tag 与 package.json 版本一致: $PKG"
+
+          if npm view "${NAME}@${PKG}" version >/dev/null 2>&1; then
+            echo "::warning::${NAME}@${PKG} 已经发布过了，npm 不允许覆盖。"
+            echo "若是重跑失败的任务，忽略此警告即可；若是新发版，说明版本号忘了升。"
+          else
+            echo "[OK] ${NAME}@${PKG} 尚未发布，可以继续"
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
