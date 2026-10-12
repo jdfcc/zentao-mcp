@@ -1,3 +1,4 @@
+
 name: Release
 
 on:
@@ -13,58 +14,59 @@ jobs:
       contents: write
       id-token: write
 
-    # 提到 job 级，供下方 publish 步骤的 if 条件判断是否配了 token
-    # （secrets 上下文不能直接用在步骤级 if 里）
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 发版由 tag 驱动，而 tag 是打在某个 commit 上的——不是 main 的最新提交。
-      # 这条守卫拦的是「tag 落后于 main / 版本号没同步改」这类最容易犯、又最难自查的错误。
-      #
-      # 版本号不一致 -> 硬失败：这永远是错的，发布的是 tag 所指 commit 的内容。
-      # 版本已发布过 -> 只警告：属于合法重试场景（比如 npm 发成功了、建 Release 那步挂了，
-      #                 你在 Actions 页面点 "Re-run failed jobs" 会再走一遍完整流程）。
-      #                 真正「忘了升版本号」的情况由上面的 tag/版本一致性检查先拦掉。
+      # 检查 Git Tag 与 package.json 版本是否一致
       - name: Verify tag matches package.json version
         shell: bash
         run: |
           set -euo pipefail
+
           TAG="${GITHUB_REF_NAME#v}"
           PKG=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).version")
           NAME=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).name")
 
           if [ "$TAG" != "$PKG" ]; then
-            echo "::error::tag v$TAG 与 package.json 的 version $PKG 不一致。"
-            echo "发布的是 tag 所指 commit 的内容。请先把版本号改成 $TAG 并提交，再重新打 tag："
-            echo "  npm version $TAG --no-git-tag-version && git commit -am \"chore: release v$TAG\""
-            echo "  git tag v$TAG && git push origin main v$TAG"
+            echo "::error::Tag v$TAG 与 package.json 版本 $PKG 不一致。"
+            echo "请先修改 package.json 的版本号，再重新打 Tag。"
             exit 1
           fi
-          echo "[OK] tag 与 package.json 版本一致: $PKG"
+
+          echo "[OK] Tag 与 package.json 版本一致: $PKG"
 
           if npm view "${NAME}@${PKG}" version >/dev/null 2>&1; then
-            echo "::warning::${NAME}@${PKG} 已经发布过了，npm 不允许覆盖。"
-            echo "若是重跑失败的任务，忽略此警告即可；若是新发版，说明版本号忘了升。"
+            echo "::warning::${NAME}@${PKG} 已发布，npm 不允许覆盖相同版本。"
           else
-            echo "[OK] ${NAME}@${PKG} 尚未发布，可以继续"
+            echo "[OK] ${NAME}@${PKG} 尚未发布"
           fi
 
+      # 使用 Node.js 24，支持新版 npm OIDC
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
+      # 确保 npm 支持 Trusted Publishing
+      - name: Update npm
+        run: npm install -g npm@^11
+
+      - name: Show versions
+        run: |
+          node --version
+          npm --version
+
+      # 安装依赖
       - name: Install dependencies
         run: npm ci
 
+      # 编译 TypeScript
       - name: Build project
         run: npm run build
 
+      # 检查编译结果
       - name: Verify build output
         run: |
           if [ ! -f "dist/index.js" ]; then
@@ -73,17 +75,16 @@ jobs:
           fi
           echo "Build successful!"
 
+      # 执行测试
       - name: Run tests
         run: npm test
 
-      # 自包含 skill 安装包（含 dist/ 与生产依赖），供 install.ps1 下载。
-      # 必须在发版之前跑：打包失败就不该发版。
+      # 构建 Skill 安装包
       - name: Pack skill bundle
         shell: pwsh
         run: ./scripts/pack-skill.ps1
 
-      # 先发 Release。skill 安装包是主要分发渠道，不能因为 npm 那边出问题就一起没了
-      # （步骤失败会跳过后续步骤——这正是之前「tag 推了却没有 Release」的一个潜在原因）。
+      # 创建 GitHub Release 并附加 Skill 安装包
       - name: Create GitHub Release and attach bundle
         uses: softprops/action-gh-release@v2
         with:
@@ -93,7 +94,9 @@ jobs:
           body: |
             ## 安装（推荐：skill 方式）
 
-            一条命令完成下载 + 注册到 `~/.agents/skills/zentao` + 配置向导 + 连接自检。
+            一条命令完成下载 + 注册到 `~/.agents/skills/zentao`
+            + 配置向导 + 连接自检。
+
             **无需注册 MCP server**，装好后任意项目目录都能用。
 
             ```powershell
@@ -106,8 +109,11 @@ jobs:
             & ([scriptblock]::Create((irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1))) -Configure
             ```
 
-            离线或内网安装：下载下面的 `zentao-skill.zip`，然后
-            `./install.ps1 -LocalZip .\zentao-skill.zip`
+            离线或内网安装：下载下面的 `zentao-skill.zip`，然后执行：
+
+            ```powershell
+            ./install.ps1 -LocalZip .\zentao-skill.zip
+            ```
 
             ## npm 方式
 
@@ -118,13 +124,11 @@ jobs:
             ## 校验
 
             安装包的 SHA256 见 `zentao-skill.zip.sha256`。
+
           draft: false
           prerelease: false
 
-      # npm 是次要渠道：没配 NPM_TOKEN 就跳过；即使配了而发布失败，也不连累上面的 Release。
-      - name: Publish to npm
-        if: env.NPM_TOKEN != ''
-        continue-on-error: true
+      # 使用 npm Trusted Publishing (OIDC) 发布
+      # 不需要 NPM_TOKEN，也不需要 NODE_AUTH_TOKEN
+      - name: Publish to npm (OIDC)
         run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
