@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { config as loadEnv } from 'dotenv';
+import { createRequire } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -12,6 +13,11 @@ import { registerStoryTools } from './tools/stories.js';
 import { registerMyTools } from './tools/my.js';
 import { ZentaoConfig } from './types.js';
 import { DEFAULT_TTL_SECONDS, DEFAULT_LIMIT } from './constants.js';
+
+// 版本号从 package.json 读，避免像之前那样硬编码成 1.2.0 而 package.json 已经 1.3.0
+// —— 客户端展示的 server 版本会一直是错的。dist/index.js 与 package.json 的相对位置
+// 在仓库里和 npm 包里都是「上一级」，所以两种布局都成立。
+const pkg = createRequire(import.meta.url)('../package.json') as { version: string };
 
 // Support both npm usage (the caller's working directory) and a local Codex
 // registration that starts dist/index.js from an unrelated project directory.
@@ -102,7 +108,7 @@ async function main() {
   const server = new McpServer(
     {
       name: 'zentao-mcp-server',
-      version: '1.2.0'
+      version: pkg.version
     },
     {
       instructions: 'Use zentao_list_projects to discover project IDs before querying bugs when no project is known. All tools are read-only. Prefer markdown for user-facing answers and json when another tool or program will process the result.'

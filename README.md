@@ -6,20 +6,31 @@
 [![CI](https://github.com/jdfcc/zentao-mcp/workflows/CI/badge.svg)](https://github.com/jdfcc/zentao-mcp/actions)
 [![Release](https://github.com/jdfcc/zentao-mcp/workflows/Release/badge.svg)](https://github.com/jdfcc/zentao-mcp/actions)
 
-禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供查询项目和 Bug 的工具，同时支持 Codex CLI/IDE 与 Claude Desktop/Claude Code。
+禅道项目管理系统的 MCP (Model Context Protocol) 服务器，提供 **8 个只读查询工具**，覆盖项目、Bug、任务、需求，以及跨项目的「我的地盘」（指派给我的任务 / Bug / 需求）。同时支持 Codex CLI/IDE 与 Claude Desktop/Claude Code。
 
 ## 功能特性
 
-- 查询项目列表，支持状态过滤和分页
-- 查询 Bug 列表，支持多维度过滤（项目、状态、严重程度、优先级、指派给、创建者、日期范围）
-- 查询项目任务列表，支持按状态、指派人、创建人和日期筛选
-- 获取 Bug 详细信息
-- 自动认证和 Token 缓存（TTL 可配置）
+| 工具 | 说明 |
+|------|------|
+| `zentao_list_projects` | 项目列表，支持状态过滤和分页 |
+| `zentao_list_bugs` | Bug 列表，多维度过滤（项目、状态、严重程度、优先级、指派给、创建者、解决方式、日期范围） |
+| `zentao_get_bug_details` | Bug 详情（含关联的产品/项目/执行/需求/任务） |
+| `zentao_list_tasks` | 项目任务列表，支持状态、指派人、创建人、日期筛选 |
+| `zentao_list_stories` | 项目需求列表，支持状态、阶段、关键词筛选 |
+| `zentao_list_my_tasks` | **指派给我的任务**（跨项目，对应「我的地盘」） |
+| `zentao_list_my_bugs` | **指派给我的 Bug**（跨项目） |
+| `zentao_list_my_stories` | **指派给我的需求**（跨项目） |
+
+其他特性：
+
+- **双 API 模式**：优先走 REST v1（`api.php/v1`），实例不支持时自动回退到旧版 session 接口——同一份配置既能连新版禅道也能连旧版
+- **子任务补全**：旧版 `project-task` 接口只返回顶层任务，本实现会补拉 `task-view` 的 `children` 合并回来
+- **截断标记**：结果不完整时返回 `truncated` / `truncation_message`，而不是静默少给数据
+- 自动认证和会话缓存（TTL 可配置）
 - 支持 Markdown 和 JSON 两种响应格式
 - 完整的错误处理和用户友好的错误消息
-- TypeScript 类型安全
-- Zod 运行时输入验证
-- Codex 可读的结构化输出 schema 和安全注解
+- TypeScript 类型安全 + Zod 运行时输入验证
+- 结构化输出 schema 和只读安全注解（`readOnlyHint: true`），便于客户端做权限判断
 
 ## npm 包信息
 
@@ -77,10 +88,17 @@ irm https://raw.githubusercontent.com/jdfcc/zentao-mcp/main/install.ps1 | iex
 
 ### 方式 2: 使用 npm 包
 
+> ⚠️ 本方式**必须显式提供环境变量**——npx 装出来的包里**没有 `.env`**
+> （`dist/../.env` 指向 `node_modules` 内部，那里不存在这个文件）。这是它与方式 1 的关键区别。
+
 直接使用 npx，无需安装：
 
 ```bash
-npx @jdfcc/zentao-mcp
+ZENTAO_URL=https://your-zentao-domain.com \
+ZENTAO_USERNAME=your-username \
+ZENTAO_PASSWORD=your-password \
+ZENTAO_DEFAULT_PROJECT=1 \
+npx -y @jdfcc/zentao-mcp
 ```
 
 或全局安装：
@@ -89,6 +107,11 @@ npx @jdfcc/zentao-mcp
 npm install -g @jdfcc/zentao-mcp
 zentao-mcp
 ```
+
+`-y` 跳过 npx 的安装确认，**在 MCP 宿主里必须加**，否则首次启动会卡在交互提示上。
+
+实际使用时不必手敲这些变量——交给宿主工具通过 MCP 配置注入即可，参见下方
+「配置到 Codex」方式 2 与「配置到 Claude Desktop」方式 1。
 
 ### 方式 3: 从源码安装（开发调试）
 
@@ -239,8 +262,8 @@ Parameters: {
 
 该服务器使用标准 MCP stdio 传输，Codex CLI 和 Codex IDE 扩展共享同一份 `~/.codex/config.toml` 配置。
 
-> **先选装法**：方式 1 指向本地已构建的代码，**现在就能用**；方式 2 走 npx，
-> **要求 `@jdfcc/zentao-mcp` 已发布到 npm**——没发布的话 npx 会直接 404。
+> **两种都可用**。方式 1 指向本地已构建的代码，凭据放 `.env`、无需传 `--env`；
+> 方式 2 从 npm 拉取，**必须显式传 `--env`**（包里没有 `.env`）。
 
 ### 方式 1：指向本地构建（推荐，不依赖 npm 发布）
 
@@ -426,8 +449,9 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 ```
 
 **说明**:
-- `npx -y` 确保自动使用最新版本
-- 每次启动 Claude Desktop 时会自动检查更新
+- `-y` 跳过 npx 的安装确认，**在 MCP 宿主里必须加**，否则首次启动会卡在交互提示上
+- npx 会把包装进自己的缓存（`~/.npm/_npx`）并在后续启动时**复用**，**不会每次检查更新**。
+  想升级请指定版本（`@jdfcc/zentao-mcp@1.3.3`）或用 `npm i -g` 后指向全局安装路径
 
 ### 方式 2: 使用本地克隆（开发调试）
 
@@ -436,7 +460,7 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
   "mcpServers": {
     "zentao": {
       "command": "node",
-      "args": ["D:\\path\\to\\@jdfcc/zentao-mcp\\dist\\index.js"],
+      "args": ["D:\\zendao\\zentao-mcp\\dist\\index.js"],
       "env": {
         "ZENTAO_URL": "https://your-zentao-domain.com",
         "ZENTAO_USERNAME": "your-username",
@@ -448,9 +472,12 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 }
 ```
 
+> 这里的 `args` 是**文件系统路径**，指向你克隆下来的仓库，别把包名 `@jdfcc/zentao-mcp` 混进去。
+> 若指向的是带 `.env` 的本地仓库，`env` 块可以整个省略（server 会自己读 `dist/` 上一级的 `.env`）。
+
 **macOS 路径示例**:
 ```json
-"args": ["/Users/yourname/projects/@jdfcc/zentao-mcp/dist/index.js"]
+"args": ["/Users/yourname/projects/zentao-mcp/dist/index.js"]
 ```
 
 **说明**: 请将路径替换为您实际的项目路径。
@@ -465,6 +492,9 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 - `limit`: 返回结果的最大数量（默认: 20，范围: 1-100）
 - `offset`: 分页偏移量（默认: 0）
 - `status`: 按项目状态过滤（all/active/closed）
+- `response_format`: 输出格式（markdown/json，默认: markdown）
+
+> 旧版接口一次取回全部项目后在本地分页，因此 `limit`/`offset` 对服务端不产生请求参数。
 
 ### `zentao_list_bugs`
 
@@ -477,6 +507,7 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 - `priority`: 按优先级过滤（1-高，2-中，3-低，4-最低）
 - `assignedTo`: 按指派用户过滤
 - `openedBy`: 按创建者过滤
+- `resolution`: 按解决方案过滤（如 fixed/duplicate/bydesign/postponed/wontfix/notrepro）
 - `startDate`: 创建日期范围起始（YYYY-MM-DD 格式）
 - `endDate`: 创建日期范围结束（YYYY-MM-DD 格式）
 - `limit`: 返回结果的最大数量（默认: 20，范围: 1-100）
@@ -557,17 +588,40 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 
 ## API 端点映射
 
-| 工具 | API 端点 | 说明 |
+本服务器有**两套后端**，由 `ZENTAO_API_MODE` 控制：
+
+| 模式 | 行为 |
+|------|------|
+| `auto`（默认） | 先试 REST v1；实例返回「缺少code参数」时自动切换到旧版 session 接口 |
+| `rest` | 只用 REST v1。旧版禅道没有这些端点，`my-*` 三个工具会直接报 `UNSUPPORTED_API_MODE` |
+| `legacy` | 只用旧版 session 接口。适用于老版本禅道 |
+
+认证方式随之切换：
+
+| 模式 | 认证 |
+|------|------|
+| REST | `POST /api.php/v1/tokens`，body 为 `{account, password}`，返回 `token`，后续请求放 `token` 请求头 |
+| 旧版 | `GET /api-getsessionid.json` 取 `sessionID` 与 `rand`，再 `POST /user-login.json`，密码为 `md5(md5(密码) + rand)` |
+
+各工具的端点：
+
+| 工具 | REST v1 | 旧版 |
 |------|---------|------|
-| zentao_list_projects | `GET /api.php/v1/projects` | 获取项目列表 |
-| zentao_list_bugs | `GET /api.php/v1/projects/:projectId/bugs` | 获取项目 Bug 列表 |
-| zentao_get_bug_details | `GET /api.php/v1/bugs/:bugId` | 获取 Bug 详情 |
-| zentao_list_tasks | `GET /api.php/v1/projects/:projectId/tasks` | 获取项目任务 |
-| zentao_list_stories | `GET /api.php/v1/projects/:projectId/stories` | 获取项目需求 |
-| zentao_list_my_tasks | 仅旧版 `my-task-assignedTo.json` | 指派给我的任务（跨项目） |
-| zentao_list_my_bugs | 仅旧版 `my-bug.json` | 指派给我的 Bug（跨项目） |
-| zentao_list_my_stories | 仅旧版 `my-story.json` | 指派给我的需求（跨项目） |
-| 认证 | `POST /api.php/v1/tokens` | 获取访问令牌 |
+| zentao_list_projects | `GET /api.php/v1/projects` | `project-all-all-0-order_desc-0-0-1000-1.json` |
+| zentao_list_bugs | `GET /api.php/v1/projects/{id}/bugs` | `project-bug-{id}-{orderBy}-0-all-0-0-{recPerPage}-1.json` |
+| zentao_get_bug_details | `GET /api.php/v1/bugs/{id}` | `bug-view-{id}.json` |
+| zentao_list_tasks | `GET /api.php/v1/projects/{id}/tasks` | `project-task-{id}-all-0-id_desc-0-{recPerPage}-1.json` |
+| ↳ 子任务补拉 | 无（REST 已含子任务） | `task-view-{父任务ID}.json` 取其中的 `children` |
+| zentao_list_stories | `GET /api.php/v1/projects/{id}/stories` | `project-story-{id}-0-all-0-0-{recPerPage}-1.json` |
+| zentao_list_my_tasks | **无对应端点** | `my-task-assignedTo.json` |
+| zentao_list_my_bugs | **无对应端点** | `my-bug.json` |
+| zentao_list_my_stories | **无对应端点** | `my-story.json` |
+
+旧版 URL 的构成规则是 `{module}-{method}-{参数...}-{recTotal}-{recPerPage}-{pageID}.json`，
+末尾三段固定是分页元信息。旧版响应统一包在 `{status, data}` 信封里，`data` 可能是**被转义的 JSON 字符串**，需要二次解析。
+
+> **`my-*` 三个工具只有旧版实现**——禅道 REST v1 没有「我的地盘」等价端点。
+> 所以把 `ZENTAO_API_MODE` 设成 `rest` 会让这三个工具不可用（默认的 `auto` 不受影响）。
 
 ## 错误处理
 
@@ -575,28 +629,32 @@ $env:ZENTAO_CLI = "D:\some\mcp-cli.mjs"; npm run test:e2e
 
 ### 认证错误
 ```
-Error: AUTH_ERROR: Authentication failed.
-Please check your username and password, or verify ZENTAO_URL is correct.
+AUTH_ERROR: Authentication failed. Please check your username and password.
+AUTH_ERROR: Legacy session authentication failed. Please check your username and password.
 ```
 **解决方法：**
 - 检查 `.env` 文件中的用户名和密码是否正确
 - 验证 `ZENTAO_URL` 是否指向正确的禅道实例
 - 确认账号没有被锁定或需要修改密码
 
+> 密码里含 `#`、空格等字符时**必须用引号包裹**（`ZENTAO_PASSWORD="Lwyf!@#2024"`），
+> 否则 `#` 之后的内容会被 dotenv 当作注释截断，表现为「密码明明是对的却认证失败」。
+
 ### 网络错误
 ```
-Error: NETWORK_ERROR: Cannot connect to Zentao server.
-Please check network connection and ZENTAO_URL.
+NETWORK_ERROR: Cannot connect to Zentao server. Please check network connection and ZENTAO_URL.
+NETWORK_ERROR: Request timed out. Please try again.
 ```
 **解决方法：**
 - 检查网络连接
 - 验证 `ZENTAO_URL` 格式是否正确（需要包含协议：https:// 或 http://）
 - 检查防火墙设置
+- 超时上限为 30 秒；内网慢速实例可能需要放宽
 
 ### 参数错误
 ```
-Error: INVALID_PARAMETER: Resource not found.
-Please check the ID is correct.
+INVALID_PARAMETER: Resource not found. Please check the ID is correct.
+INVALID_PARAMETER: Bug 12345 was not found.
 ```
 **解决方法：**
 - 使用 `zentao_list_projects` 查看可用的项目 ID
@@ -605,12 +663,21 @@ Please check the ID is correct.
 
 ### API 错误
 ```
-Error: API_ERROR: API request failed with status 500
+API_ERROR: API request failed with status 500
+API_ERROR: Rate limit exceeded. Please wait before making more requests.
 ```
 **解决方法：**
 - 检查禅道服务器日志
 - 确认用户账号有足够的权限
 - 联系系统管理员
+
+### 模式错误
+```
+UNSUPPORTED_API_MODE: listMyTasks 只有禅道旧版接口，没有 REST v1 等价端点。请将 ZENTAO_API_MODE 设为 auto 或 legacy。
+```
+**原因**：`ZENTAO_API_MODE=rest` 时调用了只有旧版实现的工具（`zentao_list_my_*`）。
+
+**解决方法**：把 `ZENTAO_API_MODE` 改回 `auto` 或 `legacy` 并重启。默认的 `auto` 不会遇到这个问题。
 
 ## 常见使用场景
 
@@ -674,36 +741,66 @@ LOG_LEVEL=debug
 
 ### 查看日志
 
-服务器会在 stderr 输出日志：
+服务器在 **stderr** 输出日志（stdout 留给 MCP 协议，任何非 JSON-RPC 内容都会破坏它）：
+
 ```
 [INFO] Zentao MCP Server started successfully
 [INFO] Connected to: https://your-zentao-domain.com
 [INFO] Using username: your-username
 [INFO] Default project ID: 1
 [INFO] Token TTL: 3600 seconds
+[INFO] Log level: info
+[INFO] API mode: auto
 ```
+
+最后两行用于确认配置是否真的生效。`API mode` 显示的是**你配置的值**；`auto` 时实际生效的模式在首次调用工具、完成认证后才确定。
 
 ### 测试连接
 
-手动测试 API 连接：
+先确认实例走哪套 API，再对症测：
+
 ```bash
+# REST v1 —— 新版禅道，返回 token
 curl -X POST https://your-zentao-domain.com/api.php/v1/tokens \
   -H "Content-Type: application/json" \
   -d '{"account":"your-username","password":"your-password"}'
+
+# 旧版 session —— 老版本禅道，返回 sessionID 与 rand
+curl https://your-zentao-domain.com/api-getsessionid.json
 ```
+
+更推荐直接用自带的命令行客户端，它会走完整认证链路：
+
+```bash
+node mcp-cli.mjs call zentao_list_projects '{"limit":1}' --content-only
+```
+
+> ⚠️ `node mcp-cli.mjs list` **完全不碰禅道**，它成功不代表凭据可用——排障时务必用 `call`。
 
 ## 项目结构
 
 | 文件 | 说明 |
 |------|------|
-| `src/index.ts` | MCP 服务器入口，配置和工具注册 |
+| `src/index.ts` | MCP 服务器入口：加载 `.env`、校验配置、注册工具 |
 | `src/types.ts` | TypeScript 类型定义 |
-| `src/constants.ts` | 常量和枚举定义 |
-| `src/schemas/tool-input-schemas.ts` | Zod 输入验证 schema |
-| `src/services/zentao-client.ts` | 禅道 API 客户端，包含认证和请求逻辑 |
-| `src/tools/projects.ts` | 项目查询工具实现 |
-| `src/tools/bugs.ts` | Bug 查询工具实现 |
-| `dist/` | 编译输出目录 |
+| `src/constants.ts` | 常量与枚举（状态、严重程度、优先级、排序方式、响应格式） |
+| `src/schemas/tool-input-schemas.ts` | Zod 输入校验 schema（`.strict()`，多余参数直接报错） |
+| `src/schemas/tool-output-schemas.ts` | 结构化输出 schema，客户端据此校验返回值 |
+| `src/services/zentao-client.ts` | 禅道客户端：双模式认证与探测、旧版信封解包、子任务补全 |
+| `src/tools/projects.ts` | 项目工具 |
+| `src/tools/bugs.ts` | Bug 列表与详情工具 |
+| `src/tools/tasks.ts` | 任务工具 |
+| `src/tools/stories.ts` | 需求工具 |
+| `src/tools/my.ts` | 「我的地盘」三个跨项目工具 |
+| `skill/SKILL.md` | skill 说明书模板（安装时把 `{{ZENTAO_SKILL_DIR}}` 替换成真实路径） |
+| `mcp-cli.mjs` | 无依赖命令行客户端，用于手动调工具、排查问题 |
+| `install.ps1` | Windows 一键安装脚本（`irm \| iex`） |
+| `scripts/pack-skill.ps1` | 打包 Release 用的 `zentao-skill.zip` |
+| `scripts/release.ps1` | 发版：改版本号 → 提交 → 打 tag → 推送 |
+| `test-*.mjs` | 分层测试，见「开发」一节 |
+| `.github/workflows/ci.yml` | 推送即跑：构建 + `npm test` |
+| `.github/workflows/release.yml` | tag 触发：打包 + 建 Release + 发 npm |
+| `dist/` | 编译输出（gitignored，随 Release 分发，不入库） |
 
 ## 开发
 
@@ -711,7 +808,7 @@ curl -X POST https://your-zentao-domain.com/api.php/v1/tokens \
 # 安装依赖
 npm install
 
-# 开发模式运行
+# 开发模式运行（tsx watch 自动重载）
 npm run dev
 
 # 构建生产版本
@@ -719,6 +816,43 @@ npm run build
 
 # 清理构建产物
 npm run clean
+```
+
+### 测试
+
+| 命令 | 覆盖内容 | 需要真实禅道账号 | 耗时 |
+|------|---------|:---:|------|
+| `npm test` | Codex 兼容性 + 旧版客户端解析（即下面两项） | 否 | 数秒 |
+| `npm run test:codex` | 用官方 MCP SDK 客户端拉起 server，断言发现 8 个工具 | 否 | 数秒 |
+| `npm run test:legacy` | 旧版接口解析、自动探测、信封解包 | 否 | 数秒 |
+| `npm run test:mcp` | 从 3 个无关目录拉起 server，验证不依赖 cwd、且 **stdout 只有 JSON-RPC** | 是 | 数秒 |
+| `npm run test:e2e` | 24 个端到端用例：8 个工具 + 过滤/分页/排序/错误路径/跨项目不变量 | 是 | ~90 秒 |
+| `npm run test:live` | 直连真实禅道逐项验证 | 是 | 数秒 |
+
+CI 只跑不需要凭据的那几项（`npm test`）。`test:e2e` 每条用例都登录一次，不适合放进 CI。
+
+> **为什么 `test:mcp` 单独存在**：Codex 注册 MCP server 时**不设工作目录**，子进程继承你当前所在的项目目录。
+> 这个测试从 3 个无关目录各拉起一次，覆盖「在仓库里能用、换个项目就报缺环境变量」这类问题。
+> 它还会断言 stdout 除协议帧外没有任何内容——`dotenv` v17 默认会往 stdout 打印提示，
+> 而 stdout 是 MCP 的 JSON-RPC 通道，混入非 JSON 内容会让严格客户端连接失败。
+
+### 手动调用工具
+
+```bash
+node mcp-cli.mjs list                                        # 列出全部工具
+node mcp-cli.mjs describe zentao_list_bugs                   # 查看某个工具的完整 schema
+node mcp-cli.mjs call zentao_list_projects '{"limit":1}'     # 直接调用
+node mcp-cli.mjs call zentao_list_projects '{"limit":1}' --content-only   # 只输出内容
+node mcp-cli.mjs raw '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'   # 发任意 JSON-RPC
+```
+
+排障时优先用 `call`（会真正发起认证），`list` 不碰禅道、验证不了凭据。
+
+### 打包与发版
+
+```bash
+npm run pack:skill        # 生成 zentao-skill.zip
+npm run release 1.3.1     # 改版本号 → 提交 → 打 tag → 推送，由 CI 发版
 ```
 
 ## 发布新版本（维护者）
@@ -780,10 +914,13 @@ CI 需要在仓库 Settings → Secrets → Actions 配置 `NPM_TOKEN`：
 
 ### 工具调用失败
 
-1. 验证环境变量配置：`cat .env`
-2. 测试禅道 API 连接：使用 curl 或 Postman
-3. 启用调试日志：`LOG_LEVEL=debug npm start`
-4. 检查 Token 是否正确获取
+1. 验证环境变量配置：`Get-Content .env`
+2. 用自带客户端实测认证链路：`node mcp-cli.mjs call zentao_list_projects '{"limit":1}' --content-only`
+3. 启用调试日志：`$env:LOG_LEVEL='debug'; npm start`
+4. 先确认实例走 REST 还是旧版接口（日志里的 `API mode` 行）
+
+> 若怀疑是环境变量没生效：**已存在的进程环境变量会覆盖 `.env`**（dotenv 不覆写既有变量）。
+> 检查 `$env:ZENTAO_URL` 等是否在本会话里被设过。
 
 ### 类型错误
 
@@ -801,11 +938,11 @@ npm run build
 
 ## 提示
 
-- **Token 缓存**：Token 会在内存中缓存 TTL_SECONDS 秒（默认 3600 秒）
-- **分页**：使用 `offset` 和 `limit` 参数处理大量数据
-- **格式选择**：`markdown` 适合人类阅读，`json` 适合程序处理
-- **错误重试**：网络错误时会自动重试
-- **字符限制**：大响应会被截断以保持响应在合理大小内（25,000 字符）
+- **凭证缓存**：认证凭证在内存中缓存 `TTL_SECONDS` 秒（默认 3600 秒）。REST 模式下缓存的是 token，旧版模式下缓存的是 session
+- **分页**：用 `offset` 和 `limit` 处理大量数据（`limit` 上限 100）。注意 `zentao_list_my_*` 服务端忽略分页参数，见上文
+- **格式选择**：`markdown` 适合人类阅读，`json` 适合程序处理。`json` 时同时返回 `structuredContent`，由输出 schema 校验
+- **字符上限**：**仅 `zentao_list_bugs` 与 `zentao_list_projects` 在 Markdown 输出超过 25,000 字符时会自动截断**，并在结果里带 `truncated` 标记与提示。其余工具（任务、需求、Bug 详情、我的地盘）不做这层截断——它们的返回量由 `limit` 控制
+- **不会自动重试**：网络错误会直接以 `NETWORK_ERROR` 返回，请自行重试
 
 ## 参考资料
 
