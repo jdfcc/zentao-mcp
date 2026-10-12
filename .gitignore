@@ -11,3 +11,5 @@ dist/
 .claude/
 CLAUDE.md
 dist-release/
+*.tgz
+.terminals/
